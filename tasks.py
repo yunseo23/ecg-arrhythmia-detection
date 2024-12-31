@@ -222,11 +222,6 @@ def safe_max(arr):
 def safe_min(arr):
     return np.min(arr) if isinstance(arr, np.ndarray) and arr.size > 0 else 0
 
-def safe_cov(x, y):
-    if len(x) > 1 and len(y) > 1:
-        with np.errstate(all='ignore'):
-            return np.cov(x, y)
-    return np.array([[0, 0], [0, 0]])
 
 def calculate_rr_std(r_peaks, i, fs, window_size=5):
     start = max(0, i - window_size // 2)
