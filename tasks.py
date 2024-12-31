@@ -33,6 +33,7 @@ def load_ECG_annotations(record, dir, extension):
     return wfdb.rdann(mitdb_path, extension)
 
 def bandpass_filter(data, lowcut=0.5, highcut=50, fs=360, order=5):
+    # TODO : banpass lowcut, highcut 나중에 gridsearch 에 넣을지 고민해보기
     nyq = 0.5 * fs
     low = lowcut / nyq
     high = highcut / nyq
@@ -46,7 +47,7 @@ def bandpass_filter(data, lowcut=0.5, highcut=50, fs=360, order=5):
 
 
 # 개선된 R-피크 검출 함수
-def get_rpeaks(signal, wavelet='db4', dynamin=3, dynamax=5, fs=360):    
+def get_rpeaks(signal, peakthresh=0.6, minpeakterm=0.2, wavelet='db4', dynamin=3, dynamax=5, fs=360):    
     level = min(max(dynamin, int(np.log2(len(signal))) - 4), dynamax)
     coeffs = pywt.wavedec(signal, wavelet, level=level)
     cd = coeffs[-2]
@@ -62,11 +63,11 @@ def get_rpeaks(signal, wavelet='db4', dynamin=3, dynamax=5, fs=360):
 
     # 후처리1: 진폭 기반 필터링
     r_peak_amplitudes = signal[r_peaks]
-    amplitude_threshold = np.mean(r_peak_amplitudes) * 0.6  # 평균 진폭의 60%를 임계값으로 설정
+    amplitude_threshold = np.mean(r_peak_amplitudes) * peakthresh  # 평균 진폭의 peakthresh%를 임계값으로 설정
     filtered_r_peaks = r_peaks[r_peak_amplitudes > amplitude_threshold]
 
     # 후처리2: 너무 가까운 피크 제거
-    min_peak_distance = int(0.2 * fs)  # 최소 피크 간 거리 (0.2초)
+    min_peak_distance = int(minpeakterm * fs)  # 최소 피크 간 거리 (초)
     final_r_peaks = []
     for i, peak in enumerate(filtered_r_peaks):
         if i == 0 or peak - final_r_peaks[-1] >= min_peak_distance:
@@ -160,7 +161,7 @@ def get_ppeaks_manual(signal, r_peaks, wavelet='db4', dynamin=4, dynamax=6, fs=3
     # 임계값 설정
     threshold = np.mean(cD_filtered) + 0.5 * np.std(cD_filtered)
 
-    p_waves = []
+    ppeaks = []
     for r_peak in r_peaks:
         start = max(0, r_peak - int(0.3 * fs))  # P파 검색 구간 확장
         end = r_peak
@@ -170,13 +171,13 @@ def get_ppeaks_manual(signal, r_peaks, wavelet='db4', dynamin=4, dynamax=6, fs=3
         p_candidates = find_peaks(search_window, height=threshold, distance=int(0.2*fs))[0]
 
         if len(p_candidates) > 0:
-            p_wave = start + p_candidates[-1]  # R-피크에 가장 가까운 P파 선택
-            p_waves.append(p_wave)
+            ppeak = start + p_candidates[-1]  # R-피크에 가장 가까운 P파 선택
+            ppeaks.append(ppeak)
         else:
             # P파를 찾지 못한 경우, R-피크 이전의 고정된 지점을 P파로 가정
-            p_waves.append(max(0, r_peak - int(0.2 * fs)))
+            ppeaks.append(max(0, r_peak - int(0.2 * fs)))
 
-    return np.array(p_waves)
+    return np.array(ppeaks)
 
 def get_ppeaks(record, signal, rpeaks):
     # P-peak 주석 로드 또는 검출
