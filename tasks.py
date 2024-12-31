@@ -201,3 +201,141 @@ def match_pr(rpeaks, ppeaks):
             # P-wave가 없는 경우, R-peak에서 일정 거리 뺀 값 사용
             res_ppeaks.append(max(0, rpeak - int(0.2 * 360)))  # 0.2초를 가정, 샘플링 레이트 360Hz
     return np.array(res_ppeaks)
+
+
+###########################################################################################
+# feature extraction functions
+###########################################################################################
+
+def safe_divide(a, b, default=0):
+    return np.divide(a, b, out=np.full_like(a, default, dtype=float), where=b!=0)
+
+def safe_mean(a, axis=None, default=0):
+    return np.nanmean(a, axis=axis) if np.size(a) > 0 else default
+
+def safe_std(a, axis=None, default=0):
+    return np.nanstd(a, axis=axis) if np.size(a) > 1 else default
+
+def safe_max(arr):
+    return np.max(arr) if isinstance(arr, np.ndarray) and arr.size > 0 else 0
+
+def safe_min(arr):
+    return np.min(arr) if isinstance(arr, np.ndarray) and arr.size > 0 else 0
+
+def safe_cov(x, y):
+    if len(x) > 1 and len(y) > 1:
+        with np.errstate(all='ignore'):
+            return np.cov(x, y)
+    return np.array([[0, 0], [0, 0]])
+
+def calculate_rr_std(r_peaks, i, fs, window_size=5):
+    start = max(0, i - window_size // 2)
+    end = min(len(r_peaks), i + window_size // 2 + 1)
+    rr_intervals = np.diff(r_peaks[start:end]) / fs
+    return np.std(rr_intervals) if len(rr_intervals) > 1 else 0
+
+def extract_frequency_features(ecg_signal, fs=360):
+    fft_result = np.fft.fft(ecg_signal)
+    frequencies = np.fft.fftfreq(len(ecg_signal), 1/fs)
+
+    vlf_power = np.sum(np.abs(fft_result[(frequencies >= 0) & (frequencies < 0.04)]) ** 2)
+    lf_power = np.sum(np.abs(fft_result[(frequencies >= 0.04) & (frequencies < 0.15)]) ** 2)
+    hf_power = np.sum(np.abs(fft_result[(frequencies >= 0.15) & (frequencies < 0.4)]) ** 2)
+
+    lf_hf_ratio = lf_power / hf_power if hf_power != 0 else 0
+
+    return [vlf_power, lf_power, hf_power, lf_hf_ratio]
+
+def calculate_lf_hf_ratio(ecg_signal, fs=360):
+    _, _, _, lf_hf_ratio = extract_frequency_features(ecg_signal, fs)
+    return lf_hf_ratio
+
+def calculate_t_slope(t_segment, fs):
+    if len(t_segment) < 2:
+        return 0
+    time = np.arange(len(t_segment)) / fs
+    slope, _ = np.polyfit(time, t_segment, 1)
+    return slope
+
+def calculate_rr_interval(r_peaks, i, fs):
+    if i == 0:
+        return safe_divide(r_peaks[1] - r_peaks[0], fs)
+    elif i == len(r_peaks) - 1:
+        return safe_divide(r_peaks[-1] - r_peaks[-2], fs)
+    else:
+        prev_rr = safe_divide(r_peaks[i] - r_peaks[i-1], fs)
+        next_rr = safe_divide(r_peaks[i+1] - r_peaks[i], fs)
+        return np.mean([prev_rr, next_rr])
+    
+def calculate_rr_variability(r_peaks, current_index, window_size=5):
+    start = max(0, current_index - window_size)
+    end = min(len(r_peaks), current_index + window_size + 1)
+    rr_intervals = np.diff(r_peaks[start:end]) / 360  # 샘플링 레이트를 360Hz로 가정
+    return safe_std(rr_intervals)
+
+# P파 지속 시간 추정 함수
+def estimate_p_duration(ecg_signal, p_wave, fs=360):
+    window = int(0.05 * fs)
+    start = max(0, p_wave - window)
+    end = min(len(ecg_signal), p_wave + window)
+    p_segment = ecg_signal[start:end]
+    if len(p_segment) == 0:
+        return 0
+    threshold = 0.1 * max(p_segment)
+    above_threshold = np.where(p_segment > threshold)[0]
+    return (above_threshold[-1] - above_threshold[0]) / fs if len(above_threshold) > 1 else 0
+
+def calculate_qrs_morphology(qrs_segment):
+    if len(qrs_segment) < 2:
+        return 0
+    q_wave = safe_min(qrs_segment[:len(qrs_segment)//2])
+    s_wave = safe_min(qrs_segment[len(qrs_segment)//2:])
+    r_wave = safe_max(qrs_segment)
+    return safe_divide(r_wave - q_wave, r_wave - s_wave)
+
+# P파 대칭성 계산 함수
+def calculate_p_symmetry(ecg_signal, p_wave, fs=360):
+    window = int(0.05 * fs)
+    start = max(0, p_wave - window)
+    end = min(len(ecg_signal), p_wave + window)
+    p_segment = ecg_signal[start:end]
+    if len(p_segment) < 2:
+        return 0
+    mid = len(p_segment) // 2
+    return np.corrcoef(p_segment[:mid], p_segment[mid:][::-1])[0, 1]
+
+def extract_features(signal, rpeaks, ppeaks, fs=360):
+    try:
+        features = np.zeros((len(rpeaks), 16))  # 특징 수를 16개로 줄임
+        for i, (rpeak, ppeak) in enumerate(zip(rpeaks, ppeaks)):
+            qrs_start = max(0, rpeak - int(0.1 * fs))
+            qrs_end = min(len(signal), rpeak + int(0.1 * fs))
+            qrs_segment = signal[qrs_start:qrs_end]
+
+            t_start = min(len(signal), rpeak + int(0.05 * fs))
+            t_end = min(len(signal), rpeak + int(0.4 * fs))
+            t_segment = signal[t_start:t_end]
+
+            features[i] = [
+                safe_divide(qrs_end - qrs_start, fs),  # QRS_duration
+                safe_max(qrs_segment) - safe_min(qrs_segment),  # QRS_amplitude
+                calculate_rr_interval(rpeaks, i, fs),  # RR_interval
+                safe_divide(rpeak - ppeak, fs),  # PR_interval
+                safe_divide(t_end - qrs_start, fs),  # QT_interval
+                safe_max(t_segment) - safe_min(t_segment),  # T_amplitude
+                signal[ppeak] if 0 <= ppeak < len(signal) else 0,  # P_amplitude
+                calculate_rr_variability(rpeaks, i),  # RR_variability
+                1 if safe_min(t_segment) < 0 else 0,  # T_inversion
+                np.sum(np.abs(qrs_segment)),  # QRS_area
+                estimate_p_duration(signal, ppeak, fs),  # P_duration
+                np.sum(np.abs(t_segment)),  # T_area
+                calculate_rr_std(rpeaks, i, fs),  # RR_std
+                calculate_qrs_morphology(qrs_segment),  # QRS_morphology
+                calculate_t_slope(t_segment, fs),  # T_slope
+                calculate_p_symmetry(signal, ppeak, fs),  # P_symmetry
+            ]
+
+        return features
+    except Exception as e:
+        print(f"Error in extract_all_features: {str(e)}")
+        return np.array([])
