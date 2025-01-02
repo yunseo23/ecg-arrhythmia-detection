@@ -5,8 +5,10 @@ import zipfile
 import pywt
 import numpy as np
 from sklearn.feature_selection import VarianceThreshold
+from sklearn.preprocessing import MinMaxScaler
 from scipy.signal import butter, lfilter, iirnotch, find_peaks
 from scipy.interpolate import interp1d
+from sklearn.model_selection import train_test_split
 from hyperparams import *
 
 def download_data():
@@ -334,3 +336,22 @@ def extract_features(signal, rpeaks, ppeaks, fs=360):
     except Exception as e:
         print(f"Error in extract_all_features: {str(e)}")
         return np.array([])
+    
+
+################################################################################################
+
+def feature_scaling(data, feature_range=(-1, 1)):
+    scaler = MinMaxScaler(feature_range=feature_range)
+    scaled_data = scaler.fit_transform(data)
+    return scaled_data
+
+def extract_labels(rpeaks, annotations):
+    labels = []
+    for rpeak in rpeaks[1:-1]:
+        idx = np.searchsorted(annotations.sample, rpeak)
+        if idx < len(annotations.symbol):
+            labels.append(annotations.symbol[idx])
+        else:
+            print('Warning: No label found for R-peak at sample', rpeak)
+            labels.append('N')
+    return labels
