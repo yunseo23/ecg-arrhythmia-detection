@@ -188,7 +188,7 @@ def get_ppeaks(record, signal, rpeaks):
         ppeaks = np.array(annotations.sample)
     else:
         ppeaks = get_ppeaks_manual(signal, rpeaks)
-        print(f"P-peak annotations not found for record {record}. P-peaks detected using custom method.")
+        # print(f"P-peak annotations not found for record {record}. P-peaks detected using custom method.")
     return ppeaks
 
 # P-wave와 R-peak 매칭 (첫/끝 R-피크 제외)
@@ -345,14 +345,16 @@ def feature_scaling(data, feature_range=(-1, 1)):
     scaled_data = scaler.fit_transform(data)
     return scaled_data
 
-def extract_labels(rpeaks, annotations):
+def extract_labels(rpeaks, annotations, record):
     labels = []
-    for rpeak in rpeaks:
+    length = len(rpeaks)
+    for i, rpeak in enumerate(rpeaks):
         idx = np.searchsorted(annotations.sample, rpeak)
         if idx < len(annotations.symbol):
             labels.append(annotations.symbol[idx])
         else:
-            print('Warning: No label found for R-peak at sample', rpeak)
+            print(f'rpeak: {rpeak}, ann_idx: {idx} ann_sample length:{annotations.sample.shape[0]}, ann_symbol length:{len(annotations.symbol)}')
+            print(f'Warning: No label found for patient {record} {i+1} / {length} R-peak ')
             labels.append('N')
     return labels
 
