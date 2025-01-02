@@ -347,7 +347,7 @@ def feature_scaling(data, feature_range=(-1, 1)):
 
 def extract_labels(rpeaks, annotations):
     labels = []
-    for rpeak in rpeaks[1:-1]:
+    for rpeak in rpeaks:
         idx = np.searchsorted(annotations.sample, rpeak)
         if idx < len(annotations.symbol):
             labels.append(annotations.symbol[idx])
@@ -355,3 +355,24 @@ def extract_labels(rpeaks, annotations):
             print('Warning: No label found for R-peak at sample', rpeak)
             labels.append('N')
     return labels
+
+def group_labels(label):
+    if label == 'N':
+        return 'Normal'
+    elif label in ['V', 'E']:  # E도 심실 부정맥으로 간주
+        return 'Ventricular'
+    elif label in ['A', 'a', 'J', 'S']:  # 심방 관련 부정맥
+        return 'Atrial'
+    else:
+        return 'Other'
+
+def print_label_distribution(y):
+    # 레이블 분포 계산
+    labels, counts = np.unique(y, return_counts=True)
+
+    # 백분율 계산
+    percentages = (counts / counts.sum()) * 100
+
+    # 레이블과 퍼센트 출력
+    for label, percentage in zip(labels, percentages):
+        print(f"Label: {label}, Percentage: {percentage:.2f}%")
