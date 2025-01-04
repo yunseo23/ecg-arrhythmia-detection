@@ -5,10 +5,11 @@ import zipfile
 import pywt
 import numpy as np
 from sklearn.feature_selection import VarianceThreshold
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 from scipy.signal import butter, lfilter, iirnotch, find_peaks
 from scipy.interpolate import interp1d
 from sklearn.model_selection import train_test_split
+from tensorflow.keras.utils import to_categorical
 from hyperparams import *
 
 def download_data():
@@ -378,3 +379,12 @@ def print_label_distribution(y):
     # 레이블과 퍼센트 출력
     for label, percentage in zip(labels, percentages):
         print(f"Label: {label}, Percentage: {percentage:.2f}%")
+
+
+def one_hot_encoder(y):
+    y_grouped = [group_labels(label) for label in y]
+    le = LabelEncoder()
+    y_encoded = le.fit_transform(y_grouped) # label 값 정수로 변환
+    y_onehot = to_categorical(y_encoded) 
+
+    return y_onehot
