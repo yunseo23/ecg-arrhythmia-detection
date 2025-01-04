@@ -382,9 +382,8 @@ def print_label_distribution(y):
 
 
 def one_hot_encoder(y):
-    y_grouped = [group_labels(label) for label in y]
     le = LabelEncoder()
-    y_encoded = le.fit_transform(y_grouped) # label 값 정수로 변환
+    y_encoded = le.fit_transform(y) # label 값 정수로 변환
     y_onehot = to_categorical(y_encoded) 
 
     return y_onehot
