@@ -114,11 +114,11 @@ class CNNModel(BaseModel):
         x1 = Input(shape=self.x1_shape)
         conv1 = Conv1D(32, kernel_size=3, activation='relu', kernel_regularizer=l2(0.01), padding='same')(x1)
         conv1 = BatchNormalization()(conv1)
-        conv1 = MaxPooling1D(pool_size=2)(conv1)
+        # conv1 = MaxPooling1D(pool_size=2)(conv1)
 
         conv2 = Conv1D(64, kernel_size=3, activation='relu', kernel_regularizer=l2(0.01), padding='same')(conv1)
         conv2 = BatchNormalization()(conv2)
-        conv2 = MaxPooling1D(pool_size=2)(conv2)
+        # conv2 = MaxPooling1D(pool_size=2)(conv2)
 
         conv3 = Conv1D(128, kernel_size=3, activation='relu', kernel_regularizer=l2(0.01), padding='same')(conv2)
         conv3 = BatchNormalization()(conv3)
