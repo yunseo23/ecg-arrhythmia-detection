@@ -60,6 +60,9 @@ class BaseModel(ABC):
             class_weight=class_weight
         )
         return history
+    
+    def evaluate(self, x, y):
+        return self.model.evaluate(x, y)
 
 
 class LSTMModel(BaseModel):
