@@ -69,6 +69,17 @@ class BaseModel(ABC):
         x: input이 여러개이면 list형식으로 넣어주기.
         '''
         return self.model.evaluate(x, y)
+    
+    def predict(self, x):
+        '''
+        x: input이 여러개이면 list형식으로 넣어주기.
+        
+        '''
+        y_pred = self.model.predict(x)
+        y_pred = np.argmax(y_pred, axis=1)
+        return y_pred
+
+
 
 
 class LSTMModel(BaseModel):

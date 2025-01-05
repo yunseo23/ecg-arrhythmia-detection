@@ -11,6 +11,8 @@ from scipy.interpolate import interp1d
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import to_categorical
 from hyperparams import *
+from sklearn.metrics import classification_report, precision_recall_fscore_support, confusion_matrix
+
 
 def download_data():
     # 데이터셋 다운로드 및 설치
@@ -383,7 +385,21 @@ def print_label_distribution(y):
 
 def one_hot_encoder(y):
     le = LabelEncoder()
-    y_encoded = le.fit_transform(y) # label 값 정수로 변환
-    y_onehot = to_categorical(y_encoded) 
+    y_encoded = le.fit_transform(y)  # label 값 정수로 변환
+    y_onehot = to_categorical(y_encoded)  # One-hot encoding 수행
 
-    return y_onehot
+    # class_name classification report에 matching하기위해 저장
+    class_names = le.classes_
+
+    return y_onehot, class_names
+
+
+def calc_specificity(y_test, y_pred, labels):
+    conf_matrix = confusion_matrix(y_test, y_pred, labels=range(len(labels)))
+    specificity = []
+
+    for i in range(len(labels)):
+        tn = np.sum(np.delete(np.delete(conf_matrix, i, axis=0), i, axis=1))  # TN: 행/열 삭제로 계산
+        fp = np.sum(conf_matrix[:, i]) - conf_matrix[i, i]  # FP: 해당 열의 합에서 TP를 제외
+        specificity.append(tn / (tn + fp) if (tn + fp) > 0 else 0)
+    return specificity
