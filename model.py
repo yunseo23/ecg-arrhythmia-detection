@@ -38,9 +38,12 @@ class BaseModel(ABC):
             metrics=self.metrics
         )
 
-    def fit(self, x1, x2, y_train_onehot, 
-            x1_val, x2_val, y_val_onehot, 
+    def fit(self, x, y_train_onehot, 
+            x_val, y_val_onehot, 
             y_train, batch=32, epochs=50, es=None, cp=None, class_weight=None):
+        '''
+        x: input이 여러개이면 list형식으로 넣어주기.
+        '''
         self._compile_model()
 
         if es is None:
@@ -52,8 +55,8 @@ class BaseModel(ABC):
             class_weight = dict(zip(np.unique(y_train), class_weights))
 
         history = self.model.fit(
-            x=[x1, x2], y=y_train_onehot,
-            validation_data=([x1_val, x2_val], y_val_onehot),
+            x=x, y=y_train_onehot,
+            validation_data=(x_val, y_val_onehot),
             epochs=epochs,
             batch_size=batch,
             callbacks=[es, cp],
@@ -62,6 +65,9 @@ class BaseModel(ABC):
         return history
     
     def evaluate(self, x, y):
+        '''
+        x: input이 여러개이면 list형식으로 넣어주기.
+        '''
         return self.model.evaluate(x, y)
 
 
@@ -146,6 +152,42 @@ class CNNModel(BaseModel):
         output = Dense(self.n_classes, activation='softmax')(dense3)
 
         model = Model(inputs=[x1, x2], outputs=output)
+        return model
+    
+class CNNx1OnlyModel(BaseModel):
+    def __init__(self, x1_shape, n_classes, optimizer=None,
+                lossfn='categorical_crossentropy', metrics=['accuracy']):
+        super().__init__(optimizer=optimizer, lossfn=lossfn, metrics=metrics)
+        self.x1_shape = x1_shape
+        self.n_classes = n_classes
+        self.model = self._build_model()
+
+    def _build_model(self):
+        # 시계열 입력
+        x1 = Input(shape=self.x1_shape)
+        conv1 = Conv1D(32, kernel_size=3, activation='relu', kernel_regularizer=l2(0.01), padding='same')(x1)
+        conv1 = BatchNormalization()(conv1)
+        # conv1 = MaxPooling1D(pool_size=2)(conv1)
+
+        conv2 = Conv1D(64, kernel_size=3, activation='relu', kernel_regularizer=l2(0.01), padding='same')(conv1)
+        conv2 = BatchNormalization()(conv2)
+        # conv2 = MaxPooling1D(pool_size=2)(conv2)
+
+        conv3 = Conv1D(128, kernel_size=3, activation='relu', kernel_regularizer=l2(0.01), padding='same')(conv2)
+        conv3 = BatchNormalization()(conv3)
+        conv3 = GlobalAveragePooling1D()(conv3)
+
+        dense1 = Dense(128, activation='relu', kernel_regularizer=l2(0.01))(conv3)
+        dense1 = BatchNormalization()(dense1)
+        dense1 = Dropout(0.5)(dense1)
+
+        dense2 = Dense(64, activation='relu', kernel_regularizer=l2(0.01))(dense1)
+        dense2 = BatchNormalization()(dense2)
+        dense2 = Dropout(0.5)(dense2)
+
+        output = Dense(self.n_classes, activation='softmax')(dense2)
+
+        model = Model(inputs=x1, outputs=output)
         return model
     
 class CNNLSTMModel(BaseModel):
