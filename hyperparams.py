@@ -5,9 +5,3 @@ pwave_url = "https://physionet.org/static/published-projects/pwave/mit-bih-arrhy
 
 # random seed
 seed = 42
-
-# export file name
-file_name = ''
-
-# colab 사용 여부
-colab = False
