@@ -12,3 +12,15 @@ def show_rppeaks(ecg_signal, r_peaks, p_waves, fs=360, dpi=600):
     plt.title('ECG Signal with R-peaks and P-peaks')
     plt.legend()
     plt.show()
+
+def plot_metric_hist(precision, recall, specificity, class_names, width=0.2):
+    x = np.arange(len(class_names))
+    plt.bar(x - width, precision, width=width, label="Precision")
+    plt.bar(x, recall, width=width, label="Recall")
+    plt.bar(x + width, specificity, width=width, label="Specificity")
+    plt.xlabel("Classes")
+    plt.ylabel("Scores")
+    plt.title("Class-wise Performance Metrics")
+    plt.xticks(x, class_names)
+    plt.legend()
+    plt.show()

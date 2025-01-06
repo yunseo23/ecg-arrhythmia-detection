@@ -11,8 +11,9 @@ from scipy.interpolate import interp1d
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import to_categorical
 from hyperparams import *
-from sklearn.metrics import classification_report, precision_recall_fscore_support, confusion_matrix
-
+from sklearn.metrics import classification_report, precision_recall_fscore_support, confusion_matrix, accuracy_score
+import pandas as pd
+import json
 
 def download_data():
     # 데이터셋 다운로드 및 설치
@@ -49,6 +50,64 @@ def bandpass_filter(data, lowcut=0.5, highcut=50, fs=360, order=5):
     baseline = lfilter([1], [1, 0.995], y)
     return y - baseline
 
+# R 피크 검출 함수 - pantompkins
+def get_rpeaks_pantompkins(signal, fs=360):
+    def derivative_filter(data):
+        # 5점 미분 필터
+        return np.convolve(data, [2, 1, 0, -1, -2], mode='same') / 8
+
+    def squaring(data):
+        return data ** 2
+
+    def moving_window_integration(data, window_size=int(0.150 * fs)):
+        # 150ms 윈도우 적분
+        window = np.ones(window_size) / window_size
+        return np.convolve(data, window, mode='same')
+
+    def adaptive_threshold(signal, factor_p=0.3, factor_n=0.1, window=150):
+        sig_max = np.zeros_like(signal)
+        sig_min = np.zeros_like(signal)
+
+        for i in range(len(signal)):
+            start = max(0, i - window)
+            end = min(len(signal), i + window)
+            window_slice = signal[start:end]
+            sig_max[i] = np.max(window_slice)
+            sig_min[i] = np.min(window_slice)
+
+        threshold_p = sig_min + factor_p * (sig_max - sig_min)
+        threshold_n = sig_min + factor_n * (sig_max - sig_min)
+
+        return threshold_p, threshold_n
+
+    # 1. 미분
+    differentiated = derivative_filter(signal)
+
+    # 2. 제곱
+    squared = squaring(differentiated)
+
+    # 3. 이동 평균 적분
+    integrated = moving_window_integration(squared)
+
+    # 4. R피크 검출을 위한 적응형 임계값 설정
+    threshold_p, threshold_n = adaptive_threshold(integrated)
+
+    # 5. 피크 검출
+    peaks, _ = find_peaks(integrated,
+                         height=threshold_n,
+                         distance=int(0.2 * fs))  # 최소 R-R 간격 200ms
+
+    # 6. 피크 재검증 및 실제 R피크 위치 조정
+    verified_peaks = []
+    for peak in peaks:
+        if integrated[peak] > threshold_p[peak]:
+            # 실제 R피크 위치 찾기: 원본 신호에서 로컬 최대값 찾기
+            window_start = max(0, peak - int(0.1 * fs))
+            window_end = min(len(signal), peak + int(0.1 * fs))
+            actual_peak = window_start + np.argmax(signal[window_start:window_end])
+            verified_peaks.append(actual_peak)
+
+    return np.array(sorted(list(set(verified_peaks))))  # 중복 제거 및 정렬
 
 
 # 개선된 R-피크 검출 함수
@@ -361,12 +420,24 @@ def extract_labels(rpeaks, annotations, record):
             labels.append('N')
     return labels
 
-def group_labels(label):
+def group_labels_old(label):
     if label == 'N':
         return 'Normal'
     elif label in ['V', 'E']:  # E도 심실 부정맥으로 간주
         return 'Ventricular'
     elif label in ['A', 'a', 'J', 'S']:  # 심방 관련 부정맥
+        return 'Atrial'
+    else:
+        return 'Other'
+    
+def group_labels(label):
+    if label == 'N':
+        return 'Normal'
+    #elif label in ['V', 'E']:  # 심실 부정맥으로 간주
+    elif label in ['V', 'E', 'F']:  # 심실 부정맥으로 간주
+        return 'Ventricular'
+    #elif label in ['A', 'a', 'J', 'S']:  # 심방 관련 부정맥
+    elif label in ['A', 'a', 'J', 'S', 'e']:  # 심방 관련 부정맥
         return 'Atrial'
     else:
         return 'Other'
@@ -393,13 +464,47 @@ def one_hot_encoder(y):
 
     return y_onehot, class_names
 
+def calc_metrics(y_test, y_pred, labels):
+    def calc_specificity(y_test, y_pred, labels):
+        conf_matrix = confusion_matrix(y_test, y_pred, labels=range(len(labels)))
+        specificity = []
 
-def calc_specificity(y_test, y_pred, labels):
-    conf_matrix = confusion_matrix(y_test, y_pred, labels=range(len(labels)))
-    specificity = []
+        for i in range(len(labels)):
+            tn = np.sum(np.delete(np.delete(conf_matrix, i, axis=0), i, axis=1))  # TN: 행/열 삭제로 계산
+            fp = np.sum(conf_matrix[:, i]) - conf_matrix[i, i]  # FP: 해당 열의 합에서 TP를 제외
+            specificity.append(tn / (tn + fp) if (tn + fp) > 0 else 0)
+        return specificity
+    precision, recall, f1, _ = precision_recall_fscore_support(y_test, y_pred, average=None, labels=range(len(labels)))
+    specificity = calc_specificity(y_test, y_pred, labels)
 
-    for i in range(len(labels)):
-        tn = np.sum(np.delete(np.delete(conf_matrix, i, axis=0), i, axis=1))  # TN: 행/열 삭제로 계산
-        fp = np.sum(conf_matrix[:, i]) - conf_matrix[i, i]  # FP: 해당 열의 합에서 TP를 제외
-        specificity.append(tn / (tn + fp) if (tn + fp) > 0 else 0)
-    return specificity
+    return precision, recall, f1, specificity
+
+def calc_global_metrics(y_test, y_pred):
+    accuracy = accuracy_score(y_test, y_pred)
+    return {'accuracy': accuracy}
+
+
+def get_metric_df(precision, recall, f1, specificity, class_names):
+    # 결과를 DataFrame으로 정리
+    data = {
+        "Class": class_names,
+        "Precision": precision,
+        "Recall": recall,
+        "F1-Score": f1,
+        "Specificity": specificity,
+    }
+    metrics_df = pd.DataFrame(data)
+    return metrics_df
+
+def df_to_csv_colab(df, filename):
+    from google.colab import files
+    df.to_csv(filename)
+    files.download(filename)
+
+def dict_to_json_colab(data, filename):
+    from google.colab import files
+    # Write the dictionary to a .json file
+    with open(filename, 'w') as json_file:
+        json.dump(data, json_file, indent=4)
+    # Download the file
+    files.download(filename)
