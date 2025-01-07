@@ -508,3 +508,24 @@ def dict_to_json_colab(data, filename):
         json.dump(data, json_file, indent=4)
     # Download the file
     files.download(filename)
+
+
+def print_label_dist(y):
+    unique_labels, counts = np.unique(y, return_counts=True)
+    total_count = len(y)
+
+    # 결과 출력 (백분율로 변환)
+    for label, count in zip(unique_labels, counts):
+        percentage = (count / total_count) * 100
+        print(f"{label}: {count} occurrences ({percentage:.2f}%)")
+
+def check_data_split_no_overlap(train, val, test):
+    # 각 리스트를 집합으로 변환
+    set1 = set(train)
+    set2 = set(val)
+    set3 = set(test)
+    
+    # 교집합 검사
+    if set1 & set2 or set1 & set3 or set2 & set3:
+        return False  # 겹치는 원소가 있음
+    return True  # 겹치는 원소가 없음
