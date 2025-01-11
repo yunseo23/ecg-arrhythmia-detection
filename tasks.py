@@ -333,10 +333,10 @@ def calculate_rr_variability(r_peaks, current_index, window_size=5):
     return safe_std(rr_intervals)
 
 # P파 지속 시간 추정 함수
-def estimate_p_duration(ecg_signal, p_wave, fs=360):
+def estimate_p_duration(ecg_signal, p_peak, fs=360):
     window = int(0.05 * fs)
-    start = max(0, p_wave - window)
-    end = min(len(ecg_signal), p_wave + window)
+    start = max(0, p_peak - window)
+    end = min(len(ecg_signal), p_peak + window)
     p_segment = ecg_signal[start:end]
     if len(p_segment) == 0:
         return 0
@@ -353,51 +353,66 @@ def calculate_qrs_morphology(qrs_segment):
     return safe_divide(r_wave - q_wave, r_wave - s_wave)
 
 # P파 대칭성 계산 함수
-def calculate_p_symmetry(ecg_signal, p_wave, fs=360):
+def calculate_p_symmetry(ecg_signal, ppeak, fs=360):
     window = int(0.05 * fs)
-    start = max(0, p_wave - window)
-    end = min(len(ecg_signal), p_wave + window)
+    start = max(0, ppeak - window)
+    end = min(len(ecg_signal), ppeak + window)
     p_segment = ecg_signal[start:end]
     if len(p_segment) < 2:
         return 0
     mid = len(p_segment) // 2
     return np.corrcoef(p_segment[:mid], p_segment[mid:][::-1])[0, 1]
 
-def extract_features(signal, rpeaks, ppeaks, fs=360):
+def extract_features(signal, rpeaks, ppeaks, tpeaks, fs=360):
     try:
-        features = np.zeros((len(rpeaks), 16))  # 특징 수를 16개로 줄임
-        for i, (rpeak, ppeak) in enumerate(zip(rpeaks, ppeaks)):
+        features = np.zeros((len(rpeaks), 15))  # 특징 수 15개
+        for i, (rpeak, ppeak, tpeak) in enumerate(zip(rpeaks, ppeaks, tpeaks)):
             qrs_start = max(0, rpeak - int(0.1 * fs))
             qrs_end = min(len(signal), rpeak + int(0.1 * fs))
             qrs_segment = signal[qrs_start:qrs_end]
 
-            t_start = min(len(signal), rpeak + int(0.05 * fs))
-            t_end = min(len(signal), rpeak + int(0.4 * fs))
-            t_segment = signal[t_start:t_end]
+            # T-wave 정의
+            t_start = max(0, tpeak - int(0.05 * fs)) if tpeak is not None else None
+            t_end = min(len(signal), tpeak + int(0.15 * fs)) if tpeak is not None else None
+            t_segment = signal[t_start:t_end] if t_start is not None and t_end is not None else []
+            tpeak_amplitude = signal[tpeak] if tpeak is not None else 0
 
+            # P-wave 정의 및 넓이 계산
+            p_start = max(0, ppeak - int(0.06 * fs))  # P-wave 시작 추정
+            p_end = min(len(signal), ppeak + int(0.06 * fs))  # P-wave 끝 추정
+            p_segment = signal[p_start:p_end]
+            ppeak_amplitude = signal[ppeak] if 0 <= ppeak < len(signal) else 0
+
+            # QRS 및 T-wave 넓이 계산
+            p_wave_area = calculate_wave_area(p_segment, fs)
+            qrs_area = calculate_wave_area(qrs_segment, fs)
+            t_wave_area = calculate_wave_area(t_segment, fs)
+
+            # 기본 특징 설정 (P파 무관)
             features[i] = [
                 safe_divide(qrs_end - qrs_start, fs),  # QRS_duration
                 safe_max(qrs_segment) - safe_min(qrs_segment),  # QRS_amplitude
                 calculate_rr_interval(rpeaks, i, fs),  # RR_interval
-                safe_divide(rpeak - ppeak, fs),  # PR_interval
-                safe_divide(t_end - qrs_start, fs),  # QT_interval
-                safe_max(t_segment) - safe_min(t_segment),  # T_amplitude
-                signal[ppeak] if 0 <= ppeak < len(signal) else 0,  # P_amplitude
+                safe_divide(rpeak - ppeak, fs) if ppeak is not None else 0,  # PR_interval (P파 없는 경우 0)
+                safe_divide((tpeak - qrs_start) if tpeak is not None else 0, fs),  # QT_interval
+                tpeak_amplitude,  # T_amplitude
+                signal[ppeak] if 0 <= ppeak < len(signal) else 0,  # P_amplitude (P파 없는 경우 0)
                 calculate_rr_variability(rpeaks, i),  # RR_variability
                 1 if safe_min(t_segment) < 0 else 0,  # T_inversion
-                np.sum(np.abs(qrs_segment)),  # QRS_area
-                estimate_p_duration(signal, ppeak, fs),  # P_duration
-                np.sum(np.abs(t_segment)),  # T_area
-                calculate_rr_std(rpeaks, i, fs),  # RR_std
-                calculate_qrs_morphology(qrs_segment),  # QRS_morphology
-                calculate_t_slope(t_segment, fs),  # T_slope
-                calculate_p_symmetry(signal, ppeak, fs),  # P_symmetry
+                qrs_area,  # QRS_area
+                estimate_p_duration(signal, ppeak, fs) if ppeak is not None else 0,  # P_duration (P파 없는 경우 0) # TODO: 함수 수정
+                t_wave_area,  # T_area
+                calculate_t_slope(t_segment, fs),  # T_slope # TODO: 함수 수정
+                calculate_p_symmetry(signal, ppeak, fs) if ppeak is not None else 0,  # P_symmetry (P파 없는 경우 0)
+                p_wave_area, # P파 면적
             ]
 
+
         return features
+
     except Exception as e:
-        print(f"Error in extract_all_features: {str(e)}")
-        return np.array([])
+        print(f"Error in extract_features: {str(e)}")
+        return np.zeros((len(rpeaks), 15))  # 에러 시 zero array 반환
     
 
 ################################################################################################
@@ -529,3 +544,69 @@ def check_data_split_no_overlap(train, val, test):
     if set1 & set2 or set1 & set3 or set2 & set3:
         return False  # 겹치는 원소가 있음
     return True  # 겹치는 원소가 없음
+
+
+def calculate_wave_area(segment, fs):
+    from scipy.integrate import simpson
+    """
+    주어진 신호 세그먼트의 넓이를 계산.
+
+    Parameters:
+    - segment: 신호 세그먼트 (numpy 배열)
+    - fs: 샘플링 주파수
+
+    Returns:
+    - wave_area: 세그먼트 넓이 (적분 값)
+    """
+    if len(segment) == 0:
+        return 0
+    time = np.arange(len(segment)) / fs
+    wave_area = simpson(np.abs(segment), x=time)
+    return wave_area
+
+
+
+def get_tpeaks(signal, r_peaks, wavelet='sym4', dynamin=3, dynamax=6, fs=360, search_window=(0.1, 0.35)):
+    """
+    T-peak를 검출하는 함수.
+
+    Parameters:
+    - signal: ECG 신호
+    - r_peaks: R-peak의 인덱스 리스트
+    - wavelet: 사용될 웨이블릿 (기본값: 'sym4')
+    - dynamin: 웨이블릿 변환 최소 레벨
+    - dynamax: 웨이블릿 변환 최대 레벨
+    - fs: 샘플링 주파수 (Hz)
+    - search_window: R-peak 이후 T-wave 탐색 윈도우 (초 단위, 기본값: (0.2, 0.6))
+
+    Returns:
+    - tpeaks: 검출된 T-peak 인덱스 배열
+    """
+    # 1. T-wave가 포함된 신호 성분만 강조하기 위해 Wavelet Transform 사용
+    level = min(max(dynamin, int(np.log2(len(signal))) - 4), dynamax) # -4->3으로 변경. (-2로 수정해볼만 함.)
+    coeffs = pywt.wavedec(signal, wavelet, level=level)
+    cd = coeffs[-4]  # T-wave를 포함할 가능성이 높은 세부 성분 선택 -2
+    squared = cd ** 2
+
+    # 2. R-peak 기반으로 T-wave 탐색
+    tpeaks = []
+    for r_peak in r_peaks:
+        # R-peak 이후 탐색 윈도우 정의
+        start = r_peak + int(search_window[0] * fs)
+        end = r_peak + int(search_window[1] * fs)
+        if end > len(signal):  # 경계를 넘어가는 경우 방지
+            end = len(signal)
+        if start >= len(signal):
+            break
+
+        # 탐색 윈도우 내에서 최대값의 인덱스를 T-peak로 간주
+        window = squared[start:end]
+        if len(window) > 0:
+            local_max_index = np.argmax(window)
+            t_peak_index = start + local_max_index
+            tpeaks.append(t_peak_index)
+
+    return np.array(tpeaks)
+
+
+
