@@ -326,10 +326,10 @@ def calculate_rr_interval(r_peaks, i, fs):
         next_rr = safe_divide(r_peaks[i+1] - r_peaks[i], fs)
         return np.mean([prev_rr, next_rr])
     
-def calculate_rr_variability(r_peaks, current_index, window_size=5):
+def calculate_rr_variability(r_peaks, current_index, window_size=5, fs=360):
     start = max(0, current_index - window_size)
     end = min(len(r_peaks), current_index + window_size + 1)
-    rr_intervals = np.diff(r_peaks[start:end]) / 360  # 샘플링 레이트를 360Hz로 가정
+    rr_intervals = np.diff(r_peaks[start:end]) / fs  # 샘플링 레이트를 360Hz로 가정
     return safe_std(rr_intervals)
 
 # P파 지속 시간 추정 함수
@@ -370,37 +370,46 @@ def extract_features(signal, rpeaks, ppeaks, tpeaks, fs=360):
             qrs_start = max(0, rpeak - int(0.1 * fs))
             qrs_end = min(len(signal), rpeak + int(0.1 * fs))
             qrs_segment = signal[qrs_start:qrs_end]
+            qrs_area = calculate_wave_area(qrs_segment, fs)
+            qrs_duration = safe_divide(qrs_end - qrs_start, fs)
 
             # T-wave 정의
-            t_start = max(0, tpeak - int(0.05 * fs)) if tpeak is not None else None
-            t_end = min(len(signal), tpeak + int(0.15 * fs)) if tpeak is not None else None
-            t_segment = signal[t_start:t_end] if t_start is not None and t_end is not None else []
-            tpeak_amplitude = signal[tpeak] if tpeak is not None else 0
+            t_segment = []
+            tpeak_amplitude = 0
+            t_wave_area = 0
+            if tpeak is not None:
+                t_start = max(0, tpeak - int(0.05 * fs)) 
+                t_end = min(len(signal), tpeak + int(0.15 * fs)) 
+                t_segment = signal[t_start:t_end] 
+                tpeak_amplitude = signal[tpeak] 
+                t_wave_area = calculate_wave_area(t_segment, fs)
 
             # P-wave 정의 및 넓이 계산
-            p_start = max(0, ppeak - int(0.06 * fs))  # P-wave 시작 추정
-            p_end = min(len(signal), ppeak + int(0.06 * fs))  # P-wave 끝 추정
-            p_segment = signal[p_start:p_end]
-            ppeak_amplitude = signal[ppeak] if 0 <= ppeak < len(signal) else 0
-
-            # QRS 및 T-wave 넓이 계산
-            p_wave_area = calculate_wave_area(p_segment, fs)
-            qrs_area = calculate_wave_area(qrs_segment, fs)
-            t_wave_area = calculate_wave_area(t_segment, fs)
+            p_segment = []
+            ppeak_amplitude = 0
+            p_wave_area = 0
+            p_duration = 0
+            if ppeak is not None:
+                p_start = max(0, ppeak - int(0.06 * fs))  # P-wave 시작 추정
+                p_end = min(len(signal), ppeak + int(0.06 * fs))  # P-wave 끝 추정
+                p_duration = safe_divide(p_end - p_start, fs)
+                p_segment = signal[p_start:p_end]
+                ppeak_amplitude = signal[ppeak] if 0 <= ppeak < len(signal) else 0
+                p_wave_area = calculate_wave_area(p_segment, fs)
 
             # 기본 특징 설정 (P파 무관)
             features[i] = [
-                safe_divide(qrs_end - qrs_start, fs),  # QRS_duration
+                qrs_duration,  # QRS_duration
                 safe_max(qrs_segment) - safe_min(qrs_segment),  # QRS_amplitude
                 calculate_rr_interval(rpeaks, i, fs),  # RR_interval
                 safe_divide(rpeak - ppeak, fs) if ppeak is not None else 0,  # PR_interval (P파 없는 경우 0)
                 safe_divide((tpeak - qrs_start) if tpeak is not None else 0, fs),  # QT_interval
                 tpeak_amplitude,  # T_amplitude
-                signal[ppeak] if 0 <= ppeak < len(signal) else 0,  # P_amplitude (P파 없는 경우 0)
+                ppeak_amplitude,  # P_amplitude (P파 없는 경우 0)
                 calculate_rr_variability(rpeaks, i),  # RR_variability
                 1 if safe_min(t_segment) < 0 else 0,  # T_inversion
                 qrs_area,  # QRS_area
-                estimate_p_duration(signal, ppeak, fs) if ppeak is not None else 0,  # P_duration (P파 없는 경우 0) # TODO: 함수 수정
+                p_duration,  # P_duration (P파 없는 경우 0) # TODO: 함수 수정
                 t_wave_area,  # T_area
                 calculate_t_slope(t_segment, fs),  # T_slope # TODO: 함수 수정
                 calculate_p_symmetry(signal, ppeak, fs) if ppeak is not None else 0,  # P_symmetry (P파 없는 경우 0)
