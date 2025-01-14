@@ -316,7 +316,7 @@ def calculate_t_slope(t_segment, fs):
     slope, _ = np.polyfit(time, t_segment, 1)
     return slope
 
-def calculate_rr_interval(r_peaks, i, fs):
+def calc_rr_interval(r_peaks, i, fs):
     if i == 0:
         return safe_divide(r_peaks[1] - r_peaks[0], fs)
     elif i == len(r_peaks) - 1:
@@ -326,7 +326,7 @@ def calculate_rr_interval(r_peaks, i, fs):
         next_rr = safe_divide(r_peaks[i+1] - r_peaks[i], fs)
         return np.mean([prev_rr, next_rr])
     
-def calculate_rr_variability(r_peaks, current_index, window_size=5, fs=360):
+def calc_rr_var(r_peaks, current_index, window_size=5, fs=360):
     start = max(0, current_index - window_size)
     end = min(len(r_peaks), current_index + window_size + 1)
     rr_intervals = np.diff(r_peaks[start:end]) / fs  # 샘플링 레이트를 360Hz로 가정
@@ -353,11 +353,7 @@ def calculate_qrs_morphology(qrs_segment):
     return safe_divide(r_wave - q_wave, r_wave - s_wave)
 
 # P파 대칭성 계산 함수
-def calculate_p_symmetry(ecg_signal, ppeak, fs=360):
-    window = int(0.05 * fs)
-    start = max(0, ppeak - window)
-    end = min(len(ecg_signal), ppeak + window)
-    p_segment = ecg_signal[start:end]
+def calculate_p_symmetry(p_segment):
     if len(p_segment) < 2:
         return 0
     mid = len(p_segment) // 2
@@ -367,52 +363,68 @@ def extract_features(signal, rpeaks, ppeaks, tpeaks, fs=360):
     try:
         features = np.zeros((len(rpeaks), 15))  # 특징 수 15개
         for i, (rpeak, ppeak, tpeak) in enumerate(zip(rpeaks, ppeaks, tpeaks)):
+
+            # QRS & r
             qrs_start = max(0, rpeak - int(0.1 * fs))
             qrs_end = min(len(signal), rpeak + int(0.1 * fs))
             qrs_segment = signal[qrs_start:qrs_end]
-            qrs_area = calculate_wave_area(qrs_segment, fs)
+            qrs_area = calc_wave_area(qrs_segment, fs)
             qrs_duration = safe_divide(qrs_end - qrs_start, fs)
+            qrs_amplitude = safe_max(qrs_segment) - safe_min(qrs_segment)
+            rr_interval = calc_rr_interval(rpeaks, i, fs)
+            rr_var = calc_rr_var(rpeaks, i)
 
-            # T-wave 정의
+            # T
             t_segment = []
             tpeak_amplitude = 0
             t_wave_area = 0
+            qt_interval = 0
+            t_inv = 0
+            t_slope = 0
             if tpeak is not None:
                 t_start = max(0, tpeak - int(0.05 * fs)) 
                 t_end = min(len(signal), tpeak + int(0.15 * fs)) 
                 t_segment = signal[t_start:t_end] 
                 tpeak_amplitude = signal[tpeak] 
-                t_wave_area = calculate_wave_area(t_segment, fs)
+                t_wave_area = calc_wave_area(t_segment, fs)
+                t_inv = calc_t_inversion(t_segment)
+                t_slope = calculate_t_slope(t_segment, fs)
+                qt_interval = safe_divide((tpeak - qrs_start), fs)
 
-            # P-wave 정의 및 넓이 계산
+            # P
             p_segment = []
             ppeak_amplitude = 0
             p_wave_area = 0
             p_duration = 0
+            pr_interval = 0
+            p_sym = 0
             if ppeak is not None:
                 p_start = max(0, ppeak - int(0.06 * fs))  # P-wave 시작 추정
                 p_end = min(len(signal), ppeak + int(0.06 * fs))  # P-wave 끝 추정
-                p_duration = safe_divide(p_end - p_start, fs)
                 p_segment = signal[p_start:p_end]
                 ppeak_amplitude = signal[ppeak] if 0 <= ppeak < len(signal) else 0
-                p_wave_area = calculate_wave_area(p_segment, fs)
+                p_wave_area = calc_wave_area(p_segment, fs)
+                p_duration = safe_divide(p_end - p_start, fs)
+                pr_interval = safe_divide(rpeak - ppeak, fs)
+                p_sym = calculate_p_symmetry(p_segment)
+
 
             # 기본 특징 설정 (P파 무관)
             features[i] = [
-                qrs_duration,  # QRS_duration
-                safe_max(qrs_segment) - safe_min(qrs_segment),  # QRS_amplitude
-                calculate_rr_interval(rpeaks, i, fs),  # RR_interval
-                safe_divide(rpeak - ppeak, fs) if ppeak is not None else 0,  # PR_interval (P파 없는 경우 0)
-                safe_divide((tpeak - qrs_start) if tpeak is not None else 0, fs),  # QT_interval
+                qrs_duration, # QRS_duration
+                qrs_amplitude,  # QRS_amplitude
+                rr_interval,  # RR_interval
+                pr_interval,  # PR_interval 
+                qt_interval,  # QT_interval
                 tpeak_amplitude,  # T_amplitude
-                ppeak_amplitude,  # P_amplitude (P파 없는 경우 0)
-                calculate_rr_variability(rpeaks, i),  # RR_variability
-                1 if safe_min(t_segment) < 0 else 0,  # T_inversion
+                ppeak_amplitude,  # P_amplitude 
+                rr_var,  # RR_variability
+                t_inv,  # T_inversion
                 qrs_area,  # QRS_area
-                p_duration,  # P_duration (P파 없는 경우 0) # TODO: 함수 수정
+                p_duration,  # P_duration 
                 t_wave_area,  # T_area
-                calculate_t_slope(t_segment, fs),  # T_slope # TODO: 함수 수정
-                calculate_p_symmetry(signal, ppeak, fs) if ppeak is not None else 0,  # P_symmetry (P파 없는 경우 0)
+                t_slope,  # T_slope 
+                p_sym,  # P_symmetry 
                 p_wave_area, # P파 면적
             ]
 
@@ -555,7 +567,7 @@ def check_data_split_no_overlap(train, val, test):
     return True  # 겹치는 원소가 없음
 
 
-def calculate_wave_area(segment, fs):
+def calc_wave_area(segment, fs):
     from scipy.integrate import simpson
     """
     주어진 신호 세그먼트의 넓이를 계산.
@@ -618,4 +630,6 @@ def get_tpeaks(signal, r_peaks, wavelet='sym4', dynamin=3, dynamax=6, fs=360, se
     return np.array(tpeaks)
 
 
+def calc_t_inversion(t_segment):
+    return 1 if safe_min(t_segment) < 0 else 0
 
