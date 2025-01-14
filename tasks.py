@@ -316,6 +316,12 @@ def calculate_t_slope(t_segment, fs):
     slope, _ = np.polyfit(time, t_segment, 1)
     return slope
 
+def calc_slope(signal, peak,fs, dx=0.04):
+    segment, _, _ = get_segment(signal, peak, 0, dx, fs)
+    time = np.arange(len(segment)) / fs
+    slope, _ = np.polyfit(time, segment, 1)
+    return slope
+
 def calc_rr_interval(r_peaks, i, fs):
     if i == 0:
         return safe_divide(r_peaks[1] - r_peaks[0], fs)
@@ -353,7 +359,7 @@ def calculate_qrs_morphology(qrs_segment):
     return safe_divide(r_wave - q_wave, r_wave - s_wave)
 
 # P파 대칭성 계산 함수
-def calculate_p_symmetry(p_segment):
+def calc_symmetry(p_segment):
     if len(p_segment) < 2:
         return 0
     mid = len(p_segment) // 2
@@ -364,10 +370,8 @@ def extract_features(signal, rpeaks, ppeaks, tpeaks, fs=360):
         features = np.zeros((len(rpeaks), 15))  # 특징 수 15개
         for i, (rpeak, ppeak, tpeak) in enumerate(zip(rpeaks, ppeaks, tpeaks)):
 
-            # QRS & r
-            qrs_start = max(0, rpeak - int(0.1 * fs))
-            qrs_end = min(len(signal), rpeak + int(0.1 * fs))
-            qrs_segment = signal[qrs_start:qrs_end]
+            # QRS & R
+            qrs_segment, qrs_start, qrs_end = get_segment(signal, rpeak, 0.1, 0.1, fs)
             qrs_area = calc_wave_area(qrs_segment, fs)
             qrs_duration = safe_divide(qrs_end - qrs_start, fs)
             qrs_amplitude = safe_max(qrs_segment) - safe_min(qrs_segment)
@@ -382,13 +386,11 @@ def extract_features(signal, rpeaks, ppeaks, tpeaks, fs=360):
             t_inv = 0
             t_slope = 0
             if tpeak is not None:
-                t_start = max(0, tpeak - int(0.05 * fs)) 
-                t_end = min(len(signal), tpeak + int(0.15 * fs)) 
-                t_segment = signal[t_start:t_end] 
+                t_segment, _, _ = get_segment(signal, tpeak, 0.05, 0.15, fs)
                 tpeak_amplitude = signal[tpeak] 
                 t_wave_area = calc_wave_area(t_segment, fs)
-                t_inv = calc_t_inversion(t_segment)
-                t_slope = calculate_t_slope(t_segment, fs)
+                t_inv = calc_inversion(t_segment)
+                t_slope = calc_slope(t_segment, fs)
                 qt_interval = safe_divide((tpeak - qrs_start), fs)
 
             # P
@@ -399,14 +401,12 @@ def extract_features(signal, rpeaks, ppeaks, tpeaks, fs=360):
             pr_interval = 0
             p_sym = 0
             if ppeak is not None:
-                p_start = max(0, ppeak - int(0.06 * fs))  # P-wave 시작 추정
-                p_end = min(len(signal), ppeak + int(0.06 * fs))  # P-wave 끝 추정
-                p_segment = signal[p_start:p_end]
+                p_segment, p_end, p_start = get_segment(signal, ppeak, 0.06, 0.06, fs)
                 ppeak_amplitude = signal[ppeak] if 0 <= ppeak < len(signal) else 0
                 p_wave_area = calc_wave_area(p_segment, fs)
                 p_duration = safe_divide(p_end - p_start, fs)
                 pr_interval = safe_divide(rpeak - ppeak, fs)
-                p_sym = calculate_p_symmetry(p_segment)
+                p_sym = calc_symmetry(p_segment)
 
 
             # 기본 특징 설정 (P파 무관)
@@ -435,6 +435,11 @@ def extract_features(signal, rpeaks, ppeaks, tpeaks, fs=360):
         print(f"Error in extract_features: {str(e)}")
         return np.zeros((len(rpeaks), 15))  # 에러 시 zero array 반환
     
+def get_segment(signal, peak, time_before, time_after, fs):
+    start = max(0, peak - int(time_before * fs))
+    end = min(len(signal), peak + int(time_after * fs))
+    segment = signal[start:end]
+    return segment, start, end
 
 ################################################################################################
 
@@ -630,6 +635,6 @@ def get_tpeaks(signal, r_peaks, wavelet='sym4', dynamin=3, dynamax=6, fs=360, se
     return np.array(tpeaks)
 
 
-def calc_t_inversion(t_segment):
+def calc_inversion(t_segment):
     return 1 if safe_min(t_segment) < 0 else 0
 
