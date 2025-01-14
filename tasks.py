@@ -365,9 +365,10 @@ def calc_symmetry(p_segment):
     mid = len(p_segment) // 2
     return np.corrcoef(p_segment[:mid], p_segment[mid:][::-1])[0, 1]
 
-def extract_features(signal, rpeaks, ppeaks, tpeaks, fs=360):
+def extract_features(signal, rpeaks, ppeaks, tpeaks, num_feat_scale, num_feat_not_scale, fs=360):
     try:
-        features = np.zeros((len(rpeaks), 15))  # 특징 수 15개
+        feat_scale = np.zeros((len(rpeaks), num_feat_scale))  
+        feat_not_scale = np.zeros((len(rpeaks), num_feat_not_scale))  
         for i, (rpeak, ppeak, tpeak) in enumerate(zip(rpeaks, ppeaks, tpeaks)):
 
             # QRS & R
@@ -390,7 +391,7 @@ def extract_features(signal, rpeaks, ppeaks, tpeaks, fs=360):
                 tpeak_amplitude = signal[tpeak] 
                 t_wave_area = calc_wave_area(t_segment, fs)
                 t_inv = calc_inversion(t_segment)
-                t_slope = calc_slope(t_segment, fs)
+                t_slope = calc_slope(t_segment,tpeak, fs)
                 qt_interval = safe_divide((tpeak - qrs_start), fs)
 
             # P
@@ -410,7 +411,7 @@ def extract_features(signal, rpeaks, ppeaks, tpeaks, fs=360):
 
 
             # 기본 특징 설정 (P파 무관)
-            features[i] = [
+            feat_scale[i] = [
                 qrs_duration, # QRS_duration
                 qrs_amplitude,  # QRS_amplitude
                 rr_interval,  # RR_interval
@@ -419,17 +420,20 @@ def extract_features(signal, rpeaks, ppeaks, tpeaks, fs=360):
                 tpeak_amplitude,  # T_amplitude
                 ppeak_amplitude,  # P_amplitude 
                 rr_var,  # RR_variability
-                t_inv,  # T_inversion
                 qrs_area,  # QRS_area
                 p_duration,  # P_duration 
                 t_wave_area,  # T_area
-                t_slope,  # T_slope 
-                p_sym,  # P_symmetry 
                 p_wave_area, # P파 면적
             ]
 
+            feat_not_scale[i] = [
+                t_inv,  # T_inversion
+                p_sym,  # P_symmetry 
+                t_slope,  # T_slope 
+            ]
 
-        return features
+
+        return feat_scale, feat_not_scale
 
     except Exception as e:
         print(f"Error in extract_features: {str(e)}")

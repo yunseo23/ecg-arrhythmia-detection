@@ -5,3 +5,8 @@ pwave_url = "https://physionet.org/static/published-projects/pwave/mit-bih-arrhy
 
 # random seed
 seed = 42
+
+# x2 feature 개수
+num_x2 = 15
+num_x2_not_scale = 3
+
