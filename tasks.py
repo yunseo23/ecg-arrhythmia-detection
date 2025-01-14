@@ -593,7 +593,7 @@ def calc_wave_area(segment, fs):
 
 
 
-def get_tpeaks(signal, r_peaks, wavelet='sym4', dynamin=3, dynamax=6, fs=360, search_window=(0.1, 0.35)):
+def get_tpeaks(signal, r_peaks, wavelet='sym4', dynamin=3, dynamax=5, fs=360, search_window=(0.1, 0.25)):
     """
     T-peak를 검출하는 함수.
 
@@ -610,9 +610,9 @@ def get_tpeaks(signal, r_peaks, wavelet='sym4', dynamin=3, dynamax=6, fs=360, se
     - tpeaks: 검출된 T-peak 인덱스 배열
     """
     # 1. T-wave가 포함된 신호 성분만 강조하기 위해 Wavelet Transform 사용
-    level = min(max(dynamin, int(np.log2(len(signal))) - 4), dynamax) # -4->3으로 변경. (-2로 수정해볼만 함.)
+    level = min(max(dynamin, int(np.log2(len(signal))) - 2), dynamax) # -4->3으로 변경. (-2로 수정해볼만 함.)
     coeffs = pywt.wavedec(signal, wavelet, level=level)
-    cd = coeffs[-4]  # T-wave를 포함할 가능성이 높은 세부 성분 선택 -2
+    cd = coeffs[-2]  # T-wave를 포함할 가능성이 높은 세부 성분 선택 -2
     squared = cd ** 2
 
     # 2. R-peak 기반으로 T-wave 탐색
@@ -634,6 +634,21 @@ def get_tpeaks(signal, r_peaks, wavelet='sym4', dynamin=3, dynamax=6, fs=360, se
             tpeaks.append(t_peak_index)
 
     return np.array(tpeaks)
+
+# P-wave와 R-peak 매칭 (첫/끝 R-피크 제외)- 수정
+def match_tr(rpeaks, tpeaks):
+    res_tpeaks = []
+    for rpeak in rpeaks:
+        # R-peak 이후의 가장 가까운 P-wave 찾기
+        previous_t_waves = tpeaks[rpeak < tpeaks]
+        if len(previous_t_waves) > 0:
+            res_tpeaks.append(previous_t_waves[-1])
+        else:
+            # # P-wave가 없는 경우, R-peak에서 일정 거리 뺀 값 사용
+            # res_ppeaks.append(max(0, rpeak - int(0.2 * 360)))  # 0.2초를 가정, 샘플링 레이트 360Hz
+            # P-wave가 없는 경우, None
+            res_tpeaks.append(None)
+    return np.array(res_tpeaks, dtype=object)  # None을 포함할 수 있도록 dtype=object 사용
 
 
 def calc_inversion(t_segment):
