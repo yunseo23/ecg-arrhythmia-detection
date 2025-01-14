@@ -309,17 +309,11 @@ def calculate_lf_hf_ratio(ecg_signal, fs=360):
     _, _, _, lf_hf_ratio = extract_frequency_features(ecg_signal, fs)
     return lf_hf_ratio
 
-def calculate_t_slope(t_segment, fs):
-    if len(t_segment) < 2:
-        return 0
-    time = np.arange(len(t_segment)) / fs
-    slope, _ = np.polyfit(time, t_segment, 1)
-    return slope
 
-def calc_slope(signal, peak,fs, dx=0.04):
+def calc_slope(signal, peak, fs, dx=0.04):
     segment, _, _ = get_segment(signal, peak, 0, dx, fs)
     time = np.arange(len(segment)) / fs
-    slope, _ = np.polyfit(time, segment, 1)
+    slope , intercept = np.polyfit(time, segment, 1)
     return slope
 
 def calc_rr_interval(r_peaks, i, fs):
@@ -365,12 +359,12 @@ def calc_symmetry(p_segment):
     mid = len(p_segment) // 2
     return np.corrcoef(p_segment[:mid], p_segment[mid:][::-1])[0, 1]
 
-def extract_features(signal, rpeaks, ppeaks, tpeaks, num_feat_scale, num_feat_not_scale, fs=360):
+def extract_features(signal, rpeaks, ppeaks, tpeaks, fs=360):
     try:
-        feat_scale = np.zeros((len(rpeaks), num_feat_scale))  
-        feat_not_scale = np.zeros((len(rpeaks), num_feat_not_scale))  
+        feat_scale_list = []  # 동적으로 특징을 저장할 리스트
+        feat_not_scale_list = []  # 동적으로 특징을 저장할 리스트
+        
         for i, (rpeak, ppeak, tpeak) in enumerate(zip(rpeaks, ppeaks, tpeaks)):
-
             # QRS & R
             qrs_segment, qrs_start, qrs_end = get_segment(signal, rpeak, 0.1, 0.1, fs)
             qrs_area = calc_wave_area(qrs_segment, fs)
@@ -388,10 +382,10 @@ def extract_features(signal, rpeaks, ppeaks, tpeaks, num_feat_scale, num_feat_no
             t_slope = 0
             if tpeak is not None:
                 t_segment, _, _ = get_segment(signal, tpeak, 0.05, 0.15, fs)
-                tpeak_amplitude = signal[tpeak] 
+                tpeak_amplitude = signal[tpeak]
                 t_wave_area = calc_wave_area(t_segment, fs)
                 t_inv = calc_inversion(t_segment)
-                t_slope = calc_slope(t_segment,tpeak, fs)
+                t_slope = calc_slope(signal, tpeak, fs)
                 qt_interval = safe_divide((tpeak - qrs_start), fs)
 
             # P
@@ -409,10 +403,9 @@ def extract_features(signal, rpeaks, ppeaks, tpeaks, num_feat_scale, num_feat_no
                 pr_interval = safe_divide(rpeak - ppeak, fs)
                 p_sym = calc_symmetry(p_segment)
 
-
             # 기본 특징 설정 (P파 무관)
-            feat_scale[i] = [
-                qrs_duration, # QRS_duration
+            feat_scale_list.append([
+                qrs_duration,  # QRS_duration
                 qrs_amplitude,  # QRS_amplitude
                 rr_interval,  # RR_interval
                 pr_interval,  # PR_interval 
@@ -423,21 +416,25 @@ def extract_features(signal, rpeaks, ppeaks, tpeaks, num_feat_scale, num_feat_no
                 qrs_area,  # QRS_area
                 p_duration,  # P_duration 
                 t_wave_area,  # T_area
-                p_wave_area, # P파 면적
-            ]
+                p_wave_area,  # P_wave_area
+            ])
 
-            feat_not_scale[i] = [
+            feat_not_scale_list.append([
                 t_inv,  # T_inversion
                 p_sym,  # P_symmetry 
                 t_slope,  # T_slope 
-            ]
+            ])
 
+        # 리스트를 numpy 배열로 변환
+        feat_scale = np.array(feat_scale_list)
+        feat_not_scale = np.array(feat_not_scale_list)
 
         return feat_scale, feat_not_scale
 
     except Exception as e:
         print(f"Error in extract_features: {str(e)}")
-        return np.zeros((len(rpeaks), 15))  # 에러 시 zero array 반환
+        return np.zeros((len(rpeaks), 15)), np.zeros((len(rpeaks), 3))  # 에러 시 zero array 반환
+
     
 def get_segment(signal, peak, time_before, time_after, fs):
     start = max(0, peak - int(time_before * fs))
