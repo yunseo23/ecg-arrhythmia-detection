@@ -262,8 +262,7 @@ def match_pr(rpeaks, ppeaks):
         if len(previous_p_waves) > 0:
             res_ppeaks.append(previous_p_waves[-1])
         else:
-            # P-wave가 없는 경우, R-peak에서 일정 거리 뺀 값 사용
-            res_ppeaks.append(max(0, rpeak - int(0.2 * 360)))  # 0.2초를 가정, 샘플링 레이트 360Hz
+            res_ppeaks.append(None)  
     return np.array(res_ppeaks)
 
 
@@ -642,7 +641,7 @@ def match_tr(rpeaks, tpeaks):
         # R-peak 이후의 가장 가까운 P-wave 찾기
         previous_t_waves = tpeaks[rpeak < tpeaks]
         if len(previous_t_waves) > 0:
-            res_tpeaks.append(previous_t_waves[-1])
+            res_tpeaks.append(previous_t_waves[0])
         else:
             # # P-wave가 없는 경우, R-peak에서 일정 거리 뺀 값 사용
             # res_ppeaks.append(max(0, rpeak - int(0.2 * 360)))  # 0.2초를 가정, 샘플링 레이트 360Hz
