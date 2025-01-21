@@ -50,6 +50,7 @@ def bandpass_filter(data, lowcut=0.5, highcut=50, fs=360, order=5):
     baseline = lfilter([1], [1, 0.995], y)
     return y - baseline
 
+
 # R 피크 검출 함수 - pantompkins
 def get_rpeaks_pantompkins(signal, fs=360):
     def derivative_filter(data):
@@ -175,6 +176,22 @@ def segment_heartbeats(signal, rpeaks, target_length=300):
 
     return np.array(segments)
 
+def segmentation(signal, rpeaks, resample_len=300):
+    segments = []
+    for i in range(len(rpeaks)-1):
+        start = rpeaks[i]
+        end = rpeaks[i+1]
+        segment = signal[start:end]
+
+        # length resampling
+        x = np.linspace(0, 1, len(segment))
+        x_new = np.linspace(0, 1, resample_len)
+        f = interp1d(x, segment, kind='linear')
+        resampled_segment = f(x_new)
+        segments.append(resampled_segment)
+
+    return np.array(segments)
+
 def IQR_clipping(data):
     res = data.copy()
     for col in range(data.shape[1]):
@@ -207,8 +224,7 @@ def remove_const_features(data):
     selector = VarianceThreshold(threshold=0)
     return selector.fit_transform(data)
 
-def get_ppeaks_manual(signal, r_peaks, wavelet='db4', dynamin=4, dynamax=6, fs=360):
-    wavelet = 'db4'
+def get_ppeaks_manual(signal, r_peaks, wavelet='db6', dynamin=4, dynamax=6, fs=360):
     level = min(max(dynamin, int(np.log2(len(signal))) - 4), dynamax) # P파는 더 낮은 주파수이므로 레벨을 조정
     coeffs = pywt.wavedec(signal, wavelet, level=level)
 
@@ -237,9 +253,6 @@ def get_ppeaks_manual(signal, r_peaks, wavelet='db4', dynamin=4, dynamax=6, fs=3
         if len(p_candidates) > 0:
             ppeak = start + p_candidates[-1]  # R-피크에 가장 가까운 P파 선택
             ppeaks.append(ppeak)
-        else:
-            # P파를 찾지 못한 경우, R-피크 이전의 고정된 지점을 P파로 가정
-            ppeaks.append(max(0, r_peak - int(0.2 * fs)))
 
     return np.array(ppeaks)
 
@@ -460,16 +473,6 @@ def extract_labels(rpeaks, annotations, record):
             print(f'Warning: No label found for patient {record} {i+1} / {length} R-peak ')
             labels.append('N')
     return labels
-
-def group_labels_old(label):
-    if label == 'N':
-        return 'Normal'
-    elif label in ['V', 'E']:  # E도 심실 부정맥으로 간주
-        return 'Ventricular'
-    elif label in ['A', 'a', 'J', 'S']:  # 심방 관련 부정맥
-        return 'Atrial'
-    else:
-        return 'Other'
     
 def group_labels(label):
     if label == 'N':
