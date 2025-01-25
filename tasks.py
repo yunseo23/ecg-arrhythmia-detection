@@ -112,33 +112,34 @@ def get_rpeaks_pantompkins(signal, fs=360):
 
 
 # 개선된 R-피크 검출 함수
-def get_rpeaks(signal, peakthresh=0.6, minpeakterm=0.2, wavelet='db4', dynamin=3, dynamax=5, fs=360):    
-    level = min(max(dynamin, int(np.log2(len(signal))) - 4), dynamax)
-    coeffs = pywt.wavedec(signal, wavelet, level=level)
-    cd = coeffs[-2]
-    squared = cd ** 2
-    window_size = int(0.1 * fs)
-    convolved = np.convolve(squared, np.ones(window_size), 'same') / window_size
+def get_rpeaks(signal, level=4, wavelet='sym4', minHR=0.65, fs=360):    
+    coeffs = pywt.wavedec(signal, wavelet=wavelet, level=level)
+    
+    d4 = coeffs[1]  # d3 is the third last coefficient
+    d3 = coeffs[2]  # d4 is the fourth last coefficient
 
-    # 동적 임계값 설정
-    threshold = np.mean(convolved) + 2 * np.std(convolved)
+    reconst_signal = pywt.upcoef('d', d3, wavelet, level=3, take=len(signal)) + \
+                           pywt.upcoef('d', d4, wavelet, level=4, take=len(signal))
 
-    # R-피크 후보 검출
-    r_peaks, _ = find_peaks(signal, distance=int(0.2*fs), height=threshold)
+    distance = int(minHR * fs)  
+    peaks, _ = find_peaks(reconst_signal, distance=distance)
 
-    # 후처리1: 진폭 기반 필터링
-    r_peak_amplitudes = signal[r_peaks]
-    amplitude_threshold = np.mean(r_peak_amplitudes) * peakthresh  # 평균 진폭의 peakthresh%를 임계값으로 설정
-    filtered_r_peaks = r_peaks[r_peak_amplitudes > amplitude_threshold]
 
-    # 후처리2: 너무 가까운 피크 제거
-    min_peak_distance = int(minpeakterm * fs)  # 최소 피크 간 거리 (초)
-    final_r_peaks = []
-    for i, peak in enumerate(filtered_r_peaks):
-        if i == 0 or peak - final_r_peaks[-1] >= min_peak_distance:
-            final_r_peaks.append(peak)
 
-    return np.array(final_r_peaks)
+
+    # # 후처리1: 진폭 기반 필터링
+    # r_peak_amplitudes = signal[r_peaks]
+    # amplitude_threshold = np.mean(r_peak_amplitudes) * peakthresh  # 평균 진폭의 peakthresh%를 임계값으로 설정
+    # filtered_r_peaks = r_peaks[r_peak_amplitudes > amplitude_threshold]
+
+    # # 후처리2: 너무 가까운 피크 제거
+    # min_peak_distance = int(minpeakterm * fs)  # 최소 피크 간 거리 (초)
+    # final_r_peaks = []
+    # for i, peak in enumerate(filtered_r_peaks):
+    #     if i == 0 or peak - final_r_peaks[-1] >= min_peak_distance:
+    #         final_r_peaks.append(peak)
+
+    return np.array(peaks)
 
 
 
@@ -378,7 +379,7 @@ def extract_features(signal, rpeaks, ppeaks, tpeaks, fs=360):
         
         for i, (rpeak, ppeak, tpeak) in enumerate(zip(rpeaks, ppeaks, tpeaks)):
             # QRS & R
-            qrs_segment, qrs_start, qrs_end = get_segment(signal, rpeak, 0.1, 0.1, fs)
+            qrs_segment, qrs_start, qrs_end = get_segment(signal, rpeak, 0.04, 0.05, fs)
             qrs_area = calc_wave_area(qrs_segment, fs)
             qrs_duration = safe_divide(qrs_end - qrs_start, fs)
             qrs_amplitude = safe_max(qrs_segment) - safe_min(qrs_segment)
@@ -417,24 +418,24 @@ def extract_features(signal, rpeaks, ppeaks, tpeaks, fs=360):
 
             # 기본 특징 설정 (P파 무관)
             feat_scale_list.append([
-                qrs_duration,  # QRS_duration
-                qrs_amplitude,  # QRS_amplitude
+                # qrs_duration,  # QRS_duration
+                # qrs_amplitude,  # QRS_amplitude
                 rr_interval,  # RR_interval
-                pr_interval,  # PR_interval 
-                qt_interval,  # QT_interval
-                tpeak_amplitude,  # T_amplitude
-                ppeak_amplitude,  # P_amplitude 
+                # pr_interval,  # PR_interval 
+                # qt_interval,  # QT_interval
+                # tpeak_amplitude,  # T_amplitude
+                # ppeak_amplitude,  # P_amplitude 
                 rr_var,  # RR_variability
-                qrs_area,  # QRS_area
-                p_duration,  # P_duration 
-                t_wave_area,  # T_area
-                p_wave_area,  # P_wave_area
+                # qrs_area,  # QRS_area
+                # p_duration,  # P_duration 
+                # t_wave_area,  # T_area
+                # p_wave_area,  # P_wave_area
             ])
 
             feat_not_scale_list.append([
-                t_inv,  # T_inversion
-                p_sym,  # P_symmetry 
-                t_slope,  # T_slope 
+                # t_inv,  # T_inversion
+                # p_sym,  # P_symmetry 
+                # t_slope,  # T_slope 
             ])
 
         # 리스트를 numpy 배열로 변환
