@@ -657,3 +657,71 @@ def match_tr(rpeaks, tpeaks):
 def calc_inversion(t_segment):
     return 1 if safe_min(t_segment) < 0 else 0
 
+
+
+# 웨이블릿 변환 및 최적 스케일 찾기
+def find_optimal_scale(ecg_signal, scales, wavelet, threshold_method="mean"):
+    """
+    모든 스케일에 대해 웨이블릿 변환을 수행하고 최적 스케일을 찾는 함수
+    
+    Args:
+        ecg_signal (numpy array): 입력 ECG 신호
+        scales (list): 웨이블릿 스케일의 리스트 (a 값)
+        wavelet : 웨이블릿 (예: 'db3')
+        threshold_method (str): 임계값 계산 방법 ("mean" 또는 "percentile")
+    
+    Returns:
+        optimal_scale (int): 최적의 스케일
+        maxima_per_scale (dict): 각 스케일의 국부적 최대값 정보
+    """
+    # local max
+    maxima_per_scale = {}
+    global_max_value = -np.inf
+    optimal_scale = None
+    
+    # 모든 스케일에 대해 웨이블릿 변환 수행
+    for scale in scales:
+        # 웨이블릿 변환 수행
+        coeffs, _ = pywt.cwt(ecg_signal, [scale], wavelet)
+        coeffs = coeffs[0]  # 웨이블릿 계수 (첫 번째 결과)
+
+        # 국부적 최대값 찾기
+        maxima_indices = [
+            i for i in range(1, len(coeffs) - 1)
+            if coeffs[i] > coeffs[i - 1] and coeffs[i] > coeffs[i + 1]
+        ]
+        maxima_values = coeffs[maxima_indices]
+        
+        # 임계값 계산
+        if threshold_method == "mean":
+            threshold = np.mean(maxima_values)
+        elif threshold_method == "percentile":
+            threshold = np.percentile(maxima_values, 75)  # 상위 25%만 선택
+        else:
+            raise ValueError("Invalid threshold method")
+        
+        # 임계값을 초과하는 국부적 최대값만 필터링
+        valid_maxima = [v for v in maxima_values if v > threshold]
+        
+        # 스케일별 최대값 저장
+        maxima_per_scale[scale] = {
+            "maxima_indices": maxima_indices,
+            "maxima_values": valid_maxima,
+            "threshold": threshold
+        }
+        
+        # 최적 스케일 찾기
+        if len(valid_maxima) > 0 and max(valid_maxima) > global_max_value:
+            global_max_value = max(valid_maxima)
+            optimal_scale = scale
+
+    return optimal_scale, maxima_per_scale
+
+
+def create_wavelet_instance(ex):
+    base_wavelet = type(ex)
+    class DiscreteContinuousWaveletEx(base_wavelet):
+        def __init__(self, name='', filter_bank=None):
+            base_wavelet.__init__(name, filter_bank)  
+            self.complex_cwt = False # wavelet 계수  True: 복소수, False: 실수
+    return DiscreteContinuousWaveletEx(ex.name)
