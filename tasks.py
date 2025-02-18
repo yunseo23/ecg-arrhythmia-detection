@@ -14,6 +14,8 @@ from hyperparams import *
 from sklearn.metrics import classification_report, precision_recall_fscore_support, confusion_matrix, accuracy_score
 import pandas as pd
 import json
+import neurokit2 as nk
+
 
 def download_data():
     # 데이터셋 다운로드 및 설치
@@ -725,3 +727,95 @@ def create_wavelet_instance(ex):
             base_wavelet.__init__(name, filter_bank)  
             self.complex_cwt = False # wavelet 계수  True: 복소수, False: 실수
     return DiscreteContinuousWaveletEx(ex.name)
+
+
+def adjust_rpeaks(sig, rpeaks, height_threshold=0.4):
+        """
+        Adjust R-peak positions based on detected peaks within the segments between R-peaks.
+
+        Returns:
+        tuple: A tuple containing adjusted R-peak positions and a list of candidate R-peaks.
+        """
+        if len(rpeaks) == 0:
+            return [], []
+        
+        adjusted_rpeaks = rpeaks.copy()
+        candidate_rpeaks = []
+
+        # Calculate the height threshold for peak detection
+        peak_height = (np.max(sig) - np.min(sig)) * height_threshold
+
+        for i in range(len(rpeaks) - 1):
+            # Extract the segment between two R-peaks
+            segment = sig[rpeaks[i]:rpeaks[i + 1]]
+            rpeak_left = sig[rpeaks[i]]
+            rpeak_right = sig[rpeaks[i + 1]]
+
+            try:
+                # Detect peaks within the segment using the height threshold
+                peaks, _ = find_peaks(segment, height=peak_height)
+            except Exception as e:
+                print(f"Error finding peaks: {e}")
+                continue
+
+            if len(peaks) == 1:
+                abs_peak_idx = rpeaks[i] + peaks[0]
+                left_diff = segment[peaks[0]] - rpeak_left
+                right_diff = segment[peaks[0]] - rpeak_right
+
+                if left_diff >= 0 and right_diff >= 0:
+                    # Replace the closer R-peak with the detected peak
+                    if (abs_peak_idx - rpeaks[i]) > (rpeaks[i + 1] - abs_peak_idx):
+                        adjusted_rpeaks[i + 1] = abs_peak_idx
+                    else:
+                        adjusted_rpeaks[i] = abs_peak_idx
+
+                elif left_diff * right_diff <= 0:
+                    # Replace the lower R-peak with the detected peak
+                    if rpeak_left < rpeak_right:
+                        adjusted_rpeaks[i] = abs_peak_idx
+                    else:
+                        adjusted_rpeaks[i + 1] = abs_peak_idx
+
+            elif len(peaks) == 2:
+                abs_peak_idx_1 = rpeaks[i] + peaks[0]
+                abs_peak_idx_2 = rpeaks[i] + peaks[1]
+
+                diff_1 = segment[peaks[0]] - rpeak_left
+                diff_2 = segment[peaks[1]] - rpeak_right
+
+                if diff_1 > 0 and diff_2 > 0:
+                    # Replace R-peaks with the detected peaks
+                    adjusted_rpeaks[i] = abs_peak_idx_1
+                    adjusted_rpeaks[i + 1] = abs_peak_idx_2
+
+        # Check the difference between original and adjusted R-peaks
+        diff = np.abs(rpeaks - adjusted_rpeaks)
+        diff = diff[diff > 0]
+
+        if len(diff) >= len(rpeaks) * 0.5:
+            for i in range(len(adjusted_rpeaks) - 1):
+                segment = sig[adjusted_rpeaks[i]:adjusted_rpeaks[i + 1]]
+                try:
+                    peaks, _ = find_peaks(segment)
+                    max_peak_idx = np.argmax(segment[peaks])
+                    max_peaks = adjusted_rpeaks[i] + peaks[max_peak_idx]
+                    candidate_rpeaks.append(max_peaks)
+                except Exception as e:
+                    print(f"Error processing candidate peaks: {e}")
+                    continue
+
+            # Remove duplicates from candidate R-peaks
+            candidate_rpeaks = [peak for peak in candidate_rpeaks if peak not in adjusted_rpeaks]
+            return adjusted_rpeaks, candidate_rpeaks
+
+        return adjusted_rpeaks, []
+
+def get_rpeaks(sig, ecg_clean_method, ecg_peaks_method, fs=360):
+    cleaned_sig = nk.ecg_clean(sig, sampling_rate=fs, method=ecg_clean_method)
+    try:
+        _, peaks = nk.ecg_peaks(cleaned_sig, sampling_rate=fs, method=ecg_peaks_method, correct_artifacts=True)
+        rpeaks = peaks['ECG_R_Peaks']
+    except:
+        rpeaks = []
+    return rpeaks
