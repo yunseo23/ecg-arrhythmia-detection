@@ -464,29 +464,41 @@ def feature_scaling(data, feature_range=(-1, 1)):
     scaled_data = scaler.fit_transform(data)
     return scaled_data
 
-def extract_labels(rpeaks, symbols, record):
+
+def find_closest_idx(arr, target):
+    # target이 삽입될 인덱스를 찾습니다.
+    idx = np.searchsorted(arr, target)
+    
+    # 배열의 시작 혹은 끝에 해당하는 경우 처리
+    if idx == 0:
+        return 0
+    if idx == len(arr):
+        return len(arr) - 1
+    
+    # 삽입 위치(idx)와 그 이전 위치(idx-1)의 값을 비교하여 target과 더 가까운 쪽을 선택
+    if abs(arr[idx] - target) < abs(target - arr[idx - 1]):
+        return idx
+    else:
+        return idx - 1
+    
+def extract_labels(rpeaks, ann_sample, symbols):
     labels = []
-    length = len(rpeaks)
     for i, rpeak in enumerate(rpeaks):
-        idx = np.searchsorted(symbols, rpeak)
-        if idx < len(symbols):
-            labels.append(symbols[idx])
-        else:
-            print(f'Warning: No label found for patient {record} {i+1} / {length} R-peak ')
-            labels.append('N')
+        idx = find_closest_idx(ann_sample, rpeak)
+        labels.append(symbols[idx])
     return labels
     
 def group_labels(label):
     if label == 'N':
-        return 'Normal'
+        return 'N'
     #elif label in ['V', 'E']:  # 심실 부정맥으로 간주
     elif label in ['V', 'E', 'F']:  # 심실 부정맥으로 간주
-        return 'Ventricular'
+        return 'V'
     #elif label in ['A', 'a', 'J', 'S']:  # 심방 관련 부정맥
     elif label in ['A', 'a', 'J', 'S', 'e']:  # 심방 관련 부정맥
-        return 'Atrial'
+        return 'A'
     else:
-        return 'Other'
+        return 'O'
 
 def print_label_distribution(y):
     # 레이블 분포 계산
