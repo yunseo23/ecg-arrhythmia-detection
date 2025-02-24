@@ -180,6 +180,7 @@ def segment_heartbeats(signal, rpeaks, target_length=300):
     return np.array(segments)
 
 def segmentation(signal, rpeaks, resample_len=300):
+    ## TODO: resample_len hyperparameter로 설정할 수 있도록 변경
     segments = []
     for i in range(len(rpeaks)-1):
         start = rpeaks[i]
