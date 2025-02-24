@@ -464,15 +464,14 @@ def feature_scaling(data, feature_range=(-1, 1)):
     scaled_data = scaler.fit_transform(data)
     return scaled_data
 
-def extract_labels(rpeaks, annotations, record):
+def extract_labels(rpeaks, symbols, record):
     labels = []
     length = len(rpeaks)
     for i, rpeak in enumerate(rpeaks):
-        idx = np.searchsorted(annotations.sample, rpeak)
-        if idx < len(annotations.symbol):
-            labels.append(annotations.symbol[idx])
+        idx = np.searchsorted(symbols, rpeak)
+        if idx < len(symbols):
+            labels.append(symbols[idx])
         else:
-            print(f'rpeak: {rpeak}, ann_idx: {idx} ann_sample length:{annotations.sample.shape[0]}, ann_symbol length:{len(annotations.symbol)}')
             print(f'Warning: No label found for patient {record} {i+1} / {length} R-peak ')
             labels.append('N')
     return labels
