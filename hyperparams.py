@@ -6,4 +6,7 @@ pwave_url = "https://physionet.org/static/published-projects/pwave/mit-bih-arrhy
 # random seed
 seed = 42
 
+# labels to exclude
+ex_labels = ['+', '[', ']', '!', 'Q', 'x', '"', '|', '~',]
+
 

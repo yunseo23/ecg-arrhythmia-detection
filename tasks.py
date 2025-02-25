@@ -181,6 +181,7 @@ def segment_heartbeats(signal, rpeaks, target_length=300):
 
 def segmentation(signal, rpeaks, resample_len=300):
     ## TODO: resample_len hyperparameter로 설정할 수 있도록 변경
+    ## TODO: resampling code 검토 
     segments = []
     for i in range(len(rpeaks)-1):
         start = rpeaks[i]
@@ -482,24 +483,31 @@ def find_closest_idx(arr, target):
     else:
         return idx - 1
     
-def extract_labels(rpeaks, ann_sample, symbols):
+def find_closest_value(data:dict, target):
+    # 각 key와 target의 차이가 가장 작은 key 선택
+    closest_key = min(data.keys(), key=lambda k: abs(k - target))
+    return data[closest_key]
+    
+def extract_labels(rpeaks, symbols):
     labels = []
-    for i, rpeak in enumerate(rpeaks):
-        idx = find_closest_idx(ann_sample, rpeak)
-        labels.append(symbols[idx])
+    for rpeak in rpeaks:
+        label = find_closest_value(symbols, rpeak)
+        labels.append(label)
     return labels
     
 def group_labels(label):
-    if label == 'N':
-        return 'N'
-    #elif label in ['V', 'E']:  # 심실 부정맥으로 간주
-    elif label in ['V', 'E', 'F']:  # 심실 부정맥으로 간주
-        return 'V'
-    #elif label in ['A', 'a', 'J', 'S']:  # 심방 관련 부정맥
-    elif label in ['A', 'a', 'J', 'S', 'e']:  # 심방 관련 부정맥
-        return 'A'
+    if label in ['N','L','R','e','j']:
+        return 'N' # N (Normal)
+    elif label in ['A','a','J','S']:  
+        return 'S' # S (Supraventricular ectopic)
+    elif label in ['V','E']:  
+        return 'V' # V (Ventricular ectopic)
+    elif label in ['F']:  
+        return 'F' # F (Fusion)
+    elif label in ['/','f']:
+        return 'Q' # Q (Unknown/Paced)
     else:
-        return 'O'
+        return 'O' # other
 
 def print_label_distribution(y):
     # 레이블 분포 계산
