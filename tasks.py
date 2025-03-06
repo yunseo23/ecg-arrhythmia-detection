@@ -15,6 +15,8 @@ from sklearn.metrics import classification_report, precision_recall_fscore_suppo
 import pandas as pd
 import json
 import neurokit2 as nk
+import matplotlib.pyplot as plt
+
 
 
 def download_data():
@@ -839,3 +841,52 @@ def get_rpeaks(sig, ecg_clean_method, ecg_peaks_method, fs=360):
     except:
         rpeaks = []
     return rpeaks
+
+## plotting
+def ecg_peak_plot(sig, rpeaks, adj_rpeaks):
+    sample_indices = np.arange(len(sig))
+    # 플롯 생성
+    plt.figure(figsize=(12, 6))
+
+    # 원본 ECG 신호 플롯
+    plt.subplot(2, 1, 1)
+    plt.plot(sample_indices, sig, label="ECG Signal", color="black")
+    plt.scatter(rpeaks, sig[rpeaks], color="red", label="Local Maxima", marker="o")  # ✅ 국부 최대값 표시
+
+    plt.subplot(2, 1, 2)
+    plt.plot(sample_indices, sig, label="ECG Signal", color="black")
+    plt.scatter(adj_rpeaks, sig[adj_rpeaks], color="red", label="Local Maxima", marker="o")  # ✅ 국부 최대값 표시
+
+
+    plt.title("ECG Signal")
+    plt.xlabel("Sample Index")
+    plt.ylabel("Amplitude")
+    plt.legend()
+
+def ecg_adjpeak_label_plotting(sig, adj_rpeaks, labels):
+    fig, ax = plt.subplots(figsize=(20, 4))
+    sample_indices = np.arange(len(sig))
+
+    # 기본 ECG 파형 그리기
+    ax.plot(sample_indices, sig, label="ECG Signal", color="black")
+    # R-peak 지점 표시
+    ax.scatter(adj_rpeaks, sig[adj_rpeaks], color="red", label="Local Maxima", marker="o")
+
+    # R-peak마다 라벨 달기
+    for rp, label in zip(adj_rpeaks, labels):
+        ax.text(rp, -0.05, label, 
+                transform=ax.get_xaxis_transform(),  # x는 데이터 좌표, y는 축 좌표
+                ha='center', 
+                va='top', 
+                color='blue')
+
+    ax.set_title("ECG Signal with Peak Labels")
+    ax.set_xlabel("Sample Index")
+    ax.set_ylabel("Amplitude")
+    ax.legend()
+
+    # 아래쪽 여백이 잘리지 않도록 y범위 조정
+    ax.set_ylim(min(sig)*1.1, max(sig)*1.1)
+
+    plt.tight_layout()
+    plt.show()
