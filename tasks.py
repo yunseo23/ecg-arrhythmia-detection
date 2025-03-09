@@ -504,9 +504,7 @@ def group_labels(label):
         return 'S' # S (Supraventricular ectopic)
     elif label in ['V','E']:  
         return 'V' # V (Ventricular ectopic)
-    elif label in ['F']:  
-        return 'F' # F (Fusion)
-    elif label in ['/','f']:
+    elif label in ['/','f','F','Q']:
         return 'Q' # Q (Unknown/Paced)
     else:
         return 'O' # other
