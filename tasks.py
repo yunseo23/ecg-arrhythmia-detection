@@ -831,10 +831,9 @@ def adjust_rpeaks(sig, rpeaks, height_threshold=0.4):
 
         return adjusted_rpeaks, []
 
-def get_rpeaks(sig, ecg_clean_method, ecg_peaks_method, fs=360):
-    cleaned_sig = nk.ecg_clean(sig, sampling_rate=fs, method=ecg_clean_method)
+def get_rpeaks(sig, ecg_peaks_method, fs=360):
     try:
-        _, peaks = nk.ecg_peaks(cleaned_sig, sampling_rate=fs, method=ecg_peaks_method, correct_artifacts=True)
+        _, peaks = nk.ecg_peaks(sig, sampling_rate=fs, method=ecg_peaks_method, correct_artifacts=True)
         rpeaks = peaks['ECG_R_Peaks']
     except:
         rpeaks = []
