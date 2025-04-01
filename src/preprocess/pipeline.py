@@ -60,5 +60,13 @@ def run_pipline(hrv_window, model_type):
         # i+=1
         # if i == 1:
         #     break
+
+        x1 = np.concatenate(all_segments, axis=0)
+        if model_type == 0:
+            x2 = None
+        elif model_type == 1:
+            x2 = np.concatenate(all_hrv, axis=0)
+        y = np.concatenate(all_labels, axis=0)
+        records = np.concatenate(all_records, axis=0)
         
-    return all_segments, all_labels, all_records, all_hrv
+    return x1, x2, y, records   
