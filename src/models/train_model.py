@@ -5,6 +5,7 @@ from src.utils.plot import plot_metric_hist
 from sklearn.utils import class_weight
 from sklearn.metrics import classification_report
 import numpy as np
+from sklearn.model_selection import StratifiedGroupKFold
 
 def split_data(x1, y, records, seed, x2=None):
     """
@@ -22,8 +23,7 @@ def split_data(x1, y, records, seed, x2=None):
               각 키에 해당하는 값은 {'x1': ..., 'x2': ..., 'y': ...} 형태의 딕셔너리입니다.
               x2가 없는 경우, 'x2'의 값은 None이 됩니다.
     """
-    import numpy as np
-    from sklearn.model_selection import StratifiedGroupKFold
+
 
     # x2가 제공되면 x1과 x2를 결합, 아니면 x1만 사용
     if x2 is not None:

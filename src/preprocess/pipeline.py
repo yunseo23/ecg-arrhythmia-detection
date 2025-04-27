@@ -1,11 +1,11 @@
-from config import MITDB_PATH, FS, EX_LABELS
+from config import MITDB_PATH, FS, EX_LABELS,HRV_WINDOW
 from src.preprocess.data_loader import get_mitdb_records, load_ECG_signal, load_symbols
 from src.preprocess.signal_process import ecg_clean, get_rpeaks, adjust_rpeaks, segmentation, compute_segment_hrv
 from tqdm import tqdm
 from sklearn.preprocessing import StandardScaler
 from src.preprocess.label_process import extract_labels, group_labels
 import numpy as np
-def run_pipeline(hrv_window, model_type):
+def run_pipeline(model_type, hrv_window=HRV_WINDOW):
     all_segments = []
     all_labels = []
     all_records = []
@@ -38,7 +38,7 @@ def run_pipeline(hrv_window, model_type):
 
         elif model_type == 1: 
             # feature extraction (HRV)
-            hrv = compute_segment_hrv(rpeaks, sampling_rate=FS, hrv_window=hrv_window)
+            hrv = compute_segment_hrv(adj_rpeaks, sampling_rate=FS, hrv_window=hrv_window)
             all_hrv.append(hrv)
 
             # segmetation based on rpeaks
