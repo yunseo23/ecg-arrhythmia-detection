@@ -5,13 +5,13 @@ from tqdm import tqdm
 from sklearn.preprocessing import StandardScaler
 from src.preprocess.label_process import extract_labels, group_labels
 import numpy as np
-def run_pipline(hrv_window, model_type):
+def run_pipeline(hrv_window, model_type):
     all_segments = []
     all_labels = []
     all_records = []
     all_hrv = []
     i=0
-    mitdb = get_mitdb_records(MITDB_PATH)
+    mitdb = get_mitdb_records()
     for record in tqdm(mitdb):
         print(record)
         # load ECG signal & annotations

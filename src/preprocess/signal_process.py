@@ -2,12 +2,13 @@ import neurokit2 as nk
 import numpy as np
 from scipy.signal import find_peaks
 from scipy.interpolate import interp1d
+from config import RESAMPLE_LEN
+import pandas as pd
 
 def ecg_clean(sig, fs, method='biosppy'):
     return nk.ecg_clean(sig, sampling_rate=fs, method=method)
 
-def segmentation(signal, rpeaks, resample_len=300):
-    ## TODO: resample_len hyperparameter로 설정할 수 있도록 변경
+def segmentation(signal, rpeaks, resample_len=RESAMPLE_LEN):
     ## TODO: resampling code 검토 
     segments = []
     for i in range(len(rpeaks)-1):

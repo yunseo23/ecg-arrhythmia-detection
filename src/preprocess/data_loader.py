@@ -13,7 +13,7 @@ def download_data(pwave_url):
         zip_ref.extractall("mitdb_p_wave")
     os.remove("p_wave.zip")
 
-def get_mitdb_records(mitdb_path):
+def get_mitdb_records(mitdb_path=MITDB_PATH):
     return set(wfdb.get_record_list(mitdb_path))
 
 def get_pwave_records(p_wave_path):

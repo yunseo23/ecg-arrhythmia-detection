@@ -1,6 +1,35 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from config import FS
+
+def plot_peaks_and_labels(sig, peaks, dct_symbols, start, end, fs=FS):
+    # --- 기존 데이터 ---
+    time = np.arange(len(sig)) / FS
+    text_offset = 0.15                            # 파형 위로 띄울 거리(진폭 단위)
+
+    # --- 그림 그리기 ---
+    plt.figure(figsize=(20, 10), dpi=600)
+    plt.plot(time, sig)                                         # 원본 ECG
+    plt.plot(peaks/FS, sig[peaks], 'ro', label='R')   # R-peak
+
+    # ──(추가) 라벨 표시 ────────────────────────────────────
+    labels = {idx: lb for idx, lb in dct_symbols.items()
+                    if start <= idx/FS <= end}
+
+    for idx, lb in labels.items():
+        t = idx / FS                # 초 단위 위치
+        y = sig[idx] + text_offset  # 살짝 위로
+        plt.text(t, y, lb, fontsize=6, ha='center', va='bottom')
+    # ─────────────────────────────────────────────────────
+
+    plt.xlabel('Time (s)')
+    plt.ylabel('Amplitude')
+    plt.title('ECG Signal with R-peaks & labels')
+    plt.xlim(start, end)                       
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
 def show_rppeaks(ecg_signal, r_peaks, p_waves, fs=360, dpi=600):
     plt.figure(figsize=(20, 10),  dpi=dpi)
