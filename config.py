@@ -7,6 +7,8 @@ pwave_url = "https://physionet.org/static/published-projects/pwave/mit-bih-arrhy
 # path
 GRIDSEARCH_PATH = './gridsearch_seed/'
 TEST_PATH = './test/'
+RESULT_PATH = './res/'  # 실험 결과 저장 경로
+DIRS_TO_CREATE = [GRIDSEARCH_PATH, TEST_PATH, RESULT_PATH]
 
 HYPERPARAMS ={
     'seed': 20,

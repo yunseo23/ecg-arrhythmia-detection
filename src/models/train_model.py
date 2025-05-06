@@ -6,6 +6,10 @@ from sklearn.utils import class_weight
 from sklearn.metrics import classification_report
 import numpy as np
 from sklearn.model_selection import StratifiedGroupKFold
+import os
+import pandas as pd
+from src.utils.utils import export_hyperparams
+from config import HYPERPARAMS, RESULT_PATH
 
 def split_data(x1, y, records, seed, x2=None):
     """
@@ -138,3 +142,24 @@ def train_and_evaluate(model_type, train, val, test,
     # histogram
     plot_metric_hist(precision, recall, specificity, class_names)
     return model, metric_df
+
+
+def train_test_pipeline(x1, x2, y, records):
+    all_metrics = []
+    seed = HYPERPARAMS['seed']
+    model_type = HYPERPARAMS['model_type']
+    res_dir = os.path.join(RESULT_PATH, f"seed{seed}_model{model_type}")
+    os.makedirs(res_dir, exist_ok=True)
+
+    train, val, test = split_data(x1, y, records, seed, x2)
+    class_weights = compute_class_weights(train['y'])
+    y_train_oh, y_val_oh, y_test_oh, class_names = one_hot_encode(train['y'], val['y'], test['y'])
+    model, metric_df = train_and_evaluate(
+        model_type, train, val, test,
+        y_train_oh, y_val_oh, y_test_oh, class_names, class_weights, seed
+    )
+    all_metrics.append(metric_df)
+    # Save metrics
+    metric_df.to_csv(os.path.join(res_dir, "metrics.csv"), index=False)
+    # Save hyperparams
+    export_hyperparams(HYPERPARAMS, os.path.join(res_dir, "hyperparams.json"))

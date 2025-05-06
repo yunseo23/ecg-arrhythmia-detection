@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 from src.preprocess.label_process import extract_labels, group_labels
 import numpy as np
 
-def run_pipeline():
+def preprocess_pipeline():
     FS = HYPERPARAMS['fs']
     EX_LABELS = HYPERPARAMS['ex_labels']
     HRV_WINDOW = HYPERPARAMS['hrv_window']
