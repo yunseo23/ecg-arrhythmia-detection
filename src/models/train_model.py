@@ -9,7 +9,7 @@ from sklearn.model_selection import StratifiedGroupKFold
 import os
 import pandas as pd
 from src.utils.utils import export_hyperparams
-from config import HYPERPARAMS, RESULT_PATH
+from config import HYPERPARAMS, RESULT_PATH, EXPERIMENT_NAME
 
 def split_data(x1, y, records, seed, x2=None):
     """
@@ -148,11 +148,15 @@ def train_test_pipeline(x1, x2, y, records):
     all_metrics = []
     seed = HYPERPARAMS['seed']
     model_type = HYPERPARAMS['model_type']
-    res_dir = os.path.join(RESULT_PATH, f"seed{seed}_model{model_type}")
+    res_dir = os.path.join(RESULT_PATH, f"{EXPERIMENT_NAME}_seed{seed}_model{model_type}")
     os.makedirs(res_dir, exist_ok=True)
+    print(f"Experiment: {EXPERIMENT_NAME}")
 
     train, val, test = split_data(x1, y, records, seed, x2)
     class_weights = compute_class_weights(train['y'])
+    # S 클래스 가중치 수동 조정 (예: 5배)
+    if 'S' in class_weights:
+        class_weights['S'] *= 5
     y_train_oh, y_val_oh, y_test_oh, class_names = one_hot_encode(train['y'], val['y'], test['y'])
     model, metric_df = train_and_evaluate(
         model_type, train, val, test,

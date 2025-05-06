@@ -6,7 +6,57 @@ from sklearn.preprocessing import StandardScaler
 from src.preprocess.label_process import extract_labels, group_labels
 import numpy as np
 
-def preprocess_pipeline():
+def undersample(x1, x2, y, records, target_class='S', random_state=42):
+    idx_target = np.where(y == target_class)[0]
+    n_target = len(idx_target)
+    idx_other = np.where(y != target_class)[0]
+    if n_target == 0:
+        raise ValueError(f"No samples found for class {target_class}")
+    np.random.seed(random_state)
+    idx_other_sampled = np.random.choice(idx_other, n_target, replace=False)
+    idx_total = np.concatenate([idx_target, idx_other_sampled])
+    np.random.shuffle(idx_total)
+    x1_new = x1[idx_total]
+    y_new = y[idx_total]
+    records_new = records[idx_total]
+    if x2 is not None:
+        x2_new = x2[idx_total]
+    else:
+        x2_new = None
+    return x1_new, x2_new, y_new, records_new
+
+def augment_signal(signal, noise_level=0.01):
+    noise = np.random.normal(0, noise_level, size=signal.shape)
+    return signal + noise
+
+def augment_S_class(x1, x2, y, records, target_class='S', n_aug=2, noise_level=0.01):
+    idx_s = np.where(y == target_class)[0]
+    x1_s = x1[idx_s]
+    y_s = y[idx_s]
+    records_s = records[idx_s]
+    if x2 is not None:
+        x2_s = x2[idx_s]
+    augmented_x1 = []
+    augmented_x2 = [] if x2 is not None else None
+    augmented_y = []
+    augmented_records = []
+    for _ in range(n_aug):
+        for i, sig in enumerate(x1_s):
+            augmented_x1.append(augment_signal(sig, noise_level))
+            if x2 is not None:
+                augmented_x2.append(x2_s[i])
+            augmented_y.append(target_class)
+            augmented_records.append(records_s[i])
+    x1_aug = np.concatenate([x1, np.array(augmented_x1)], axis=0)
+    if x2 is not None:
+        x2_aug = np.concatenate([x2, np.array(augmented_x2)], axis=0)
+    else:
+        x2_aug = None
+    y_aug = np.concatenate([y, np.array(augmented_y)], axis=0)
+    records_aug = np.concatenate([records, np.array(augmented_records)], axis=0)
+    return x1_aug, x2_aug, y_aug, records_aug
+
+def preprocess_pipeline(apply_undersample=False, target_class='S', apply_augment=False, n_aug=2, noise_level=0.01):
     FS = HYPERPARAMS['fs']
     EX_LABELS = HYPERPARAMS['ex_labels']
     HRV_WINDOW = HYPERPARAMS['hrv_window']
@@ -62,16 +112,19 @@ def preprocess_pipeline():
         all_labels.append(labels)
         all_records.append(record_idx)
         all_segments.append(segments)   
-        # i+=1
-        # if i == 1:
-        #     break
 
-        x1 = np.concatenate(all_segments, axis=0)
-        if MODEL_TYPE == 0:
-            x2 = None
-        elif MODEL_TYPE == 1:
-            x2 = np.concatenate(all_hrv, axis=0)
-        y = np.concatenate(all_labels, axis=0)
-        records = np.concatenate(all_records, axis=0)
-        
+    x1 = np.concatenate(all_segments, axis=0)
+    if MODEL_TYPE == 0:
+        x2 = None
+    elif MODEL_TYPE == 1:
+        x2 = np.concatenate(all_hrv, axis=0)
+    y = np.concatenate(all_labels, axis=0)
+    records = np.concatenate(all_records, axis=0)
+
+    if apply_augment:
+        x1, x2, y, records = augment_S_class(x1, x2, y, records, target_class=target_class, n_aug=n_aug, noise_level=noise_level)
+
+    if apply_undersample:
+        x1, x2, y, records = undersample(x1, x2, y, records, target_class=target_class)
+
     return x1, x2, y, records   

@@ -10,6 +10,9 @@ TEST_PATH = './test/'
 RESULT_PATH = './res/'  # 실험 결과 저장 경로
 DIRS_TO_CREATE = [GRIDSEARCH_PATH, TEST_PATH, RESULT_PATH]
 
+EXPERIMENT_NAME = 'classweight_S5x'  # 실험 버전/설명 등 구분용
+
+
 HYPERPARAMS ={
     'seed': 20,
     'fs' : 360,
