@@ -1,11 +1,16 @@
-from config import MITDB_PATH, FS, EX_LABELS,HRV_WINDOW
+from config import MITDB_PATH, HYPERPARAMS
 from src.preprocess.data_loader import get_mitdb_records, load_ECG_signal, load_symbols
 from src.preprocess.signal_process import ecg_clean, get_rpeaks, adjust_rpeaks, segmentation, compute_segment_hrv
 from tqdm import tqdm
 from sklearn.preprocessing import StandardScaler
 from src.preprocess.label_process import extract_labels, group_labels
 import numpy as np
-def run_pipeline(model_type, hrv_window=HRV_WINDOW):
+
+def run_pipeline():
+    FS = HYPERPARAMS['fs']
+    EX_LABELS = HYPERPARAMS['ex_labels']
+    HRV_WINDOW = HYPERPARAMS['hrv_window']
+    MODEL_TYPE = HYPERPARAMS['model_type']
     all_segments = []
     all_labels = []
     all_records = []
@@ -27,7 +32,7 @@ def run_pipeline(model_type, hrv_window=HRV_WINDOW):
         # sig normalization
         scaler = StandardScaler()
         sig_scaled = scaler.fit_transform(sig_cleaned.reshape(-1, 1)).flatten()
-        if model_type == 0:
+        if MODEL_TYPE == 0:
             # segmetation based on rpeaks
             segments = segmentation(sig_scaled, adj_rpeaks)
 
@@ -36,20 +41,20 @@ def run_pipeline(model_type, hrv_window=HRV_WINDOW):
             labels = list(map(group_labels, labels))
             labels = labels[1:]  # segmentation을 하기 때문에 마지막은 제거
 
-        elif model_type == 1: 
+        elif MODEL_TYPE == 1: 
             # feature extraction (HRV)
-            hrv = compute_segment_hrv(adj_rpeaks, sampling_rate=FS, hrv_window=hrv_window)
+            hrv = compute_segment_hrv(adj_rpeaks, sampling_rate=FS, hrv_window=HRV_WINDOW)
             all_hrv.append(hrv)
 
             # segmetation based on rpeaks
             segments = segmentation(sig_scaled, adj_rpeaks)
-            segments = segments[:-hrv_window+1]  # 마지막 min_beats 개는 제거 (HRV와 개수 맞추기)
+            segments = segments[:-HRV_WINDOW+1]  # 마지막 min_beats 개는 제거 (HRV와 개수 맞추기)
 
             # label extraction & grouping
             labels = extract_labels(adj_rpeaks, dct_symbols)
             labels = list(map(group_labels, labels))
             labels = labels[1:]  # segmentation을 하기 때문에 마지막은 제거
-            labels = labels[:-hrv_window+1]  # 마지막 min_beats 개는 제거 (HRV와 개수 맞추기)
+            labels = labels[:-HRV_WINDOW+1]  # 마지막 min_beats 개는 제거 (HRV와 개수 맞추기)
 
         # split을 위한 record 인덱스 array 생성
         record_idx = np.array([record]*len(labels)) 
@@ -62,9 +67,9 @@ def run_pipeline(model_type, hrv_window=HRV_WINDOW):
         #     break
 
         x1 = np.concatenate(all_segments, axis=0)
-        if model_type == 0:
+        if MODEL_TYPE == 0:
             x2 = None
-        elif model_type == 1:
+        elif MODEL_TYPE == 1:
             x2 = np.concatenate(all_hrv, axis=0)
         y = np.concatenate(all_labels, axis=0)
         records = np.concatenate(all_records, axis=0)

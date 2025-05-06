@@ -2,27 +2,24 @@ import neurokit2 as nk
 import numpy as np
 from scipy.signal import find_peaks
 from scipy.interpolate import interp1d
-from config import RESAMPLE_LEN
+from config import HYPERPARAMS
 import pandas as pd
 
 def ecg_clean(sig, fs, method='biosppy'):
     return nk.ecg_clean(sig, sampling_rate=fs, method=method)
 
-def segmentation(signal, rpeaks, resample_len=RESAMPLE_LEN):
-    ## TODO: resampling code 검토 
+def segmentation(signal, rpeaks):
+    resample_len = HYPERPARAMS['resample_len']
     segments = []
     for i in range(len(rpeaks)-1):
         start = rpeaks[i]
         end = rpeaks[i+1]
         segment = signal[start:end]
-
-        # length resampling
         x = np.linspace(0, 1, len(segment))
         x_new = np.linspace(0, 1, resample_len)
         f = interp1d(x, segment, kind='linear')
         resampled_segment = f(x_new)
         segments.append(resampled_segment)
-
     return np.array(segments)
 
 def adjust_rpeaks(sig, rpeaks, height_threshold=0.4):

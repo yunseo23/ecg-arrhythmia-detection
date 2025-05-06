@@ -1,24 +1,26 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from config import FS
+from config import HYPERPARAMS
 
-def plot_peaks_and_labels(sig, peaks, dct_symbols, start, end, fs=FS):
+def plot_peaks_and_labels(sig, peaks, dct_symbols, start, end, fs=None):
+    if fs is None:
+        fs = HYPERPARAMS['fs']
     # --- 기존 데이터 ---
-    time = np.arange(len(sig)) / FS
+    time = np.arange(len(sig)) / fs
     text_offset = 0.15                            # 파형 위로 띄울 거리(진폭 단위)
 
     # --- 그림 그리기 ---
     plt.figure(figsize=(20, 10), dpi=600)
     plt.plot(time, sig)                                         # 원본 ECG
-    plt.plot(peaks/FS, sig[peaks], 'ro', label='R')   # R-peak
+    plt.plot(peaks/fs, sig[peaks], 'ro', label='R')   # R-peak
 
     # ──(추가) 라벨 표시 ────────────────────────────────────
     labels = {idx: lb for idx, lb in dct_symbols.items()
-                    if start <= idx/FS <= end}
+                    if start <= idx/fs <= end}
 
     for idx, lb in labels.items():
-        t = idx / FS                # 초 단위 위치
+        t = idx / fs                # 초 단위 위치
         y = sig[idx] + text_offset  # 살짝 위로
         plt.text(t, y, lb, fontsize=6, ha='center', va='bottom')
     # ─────────────────────────────────────────────────────
@@ -31,7 +33,9 @@ def plot_peaks_and_labels(sig, peaks, dct_symbols, start, end, fs=FS):
     plt.tight_layout()
     plt.show()
 
-def show_rppeaks(ecg_signal, r_peaks, p_waves, fs=360, dpi=600):
+def show_rppeaks(ecg_signal, r_peaks, p_waves, fs=None, dpi=600):
+    if fs is None:
+        fs = HYPERPARAMS['fs']
     plt.figure(figsize=(20, 10),  dpi=dpi)
     time = np.arange(len(ecg_signal)) / fs
     plt.plot(time, ecg_signal)

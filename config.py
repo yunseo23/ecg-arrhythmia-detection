@@ -4,10 +4,16 @@ pwave_path = './mitdb_p_wave/mit-bih-arrhythmia-database-p-wave-annotations-1.0.
 pwave_url = "https://physionet.org/static/published-projects/pwave/mit-bih-arrhythmia-database-p-wave-annotations-1.0.0.zip"
 
 
-SEED = 20 # random seed
-FS = 360 # signal frequency
-HRV_WINDOW = 5
-EX_LABELS = ['+', '[', ']', '!', 'Q', 'x', '"', '|', '~',] # labels to exclude
-MODEL_TYPE = 0 # 0: x1 only, 1: x1,x2
-RESAMPLE_LEN = 300 # ecg resample length
+# path
+GRIDSEARCH_PATH = './gridsearch_seed/'
+TEST_PATH = './test/'
+
+HYPERPARAMS ={
+    'seed': 20,
+    'fs' : 360,
+    'hrv_window' : 5,
+    'ex_labels' : ['+', '[', ']', '!', 'Q', 'x', '"', '|', '~',],
+    'model_type' : 0, # 0: x1 only, 1: x1,x2
+    'resample_len' : 300, # ecg resample length
+}
 

@@ -1,0 +1,18 @@
+---
+description: This rule describes the overall structure, goals, and requirements for the MIT-BIH Arrhythmia multi-class ECG classification project. Agents should reference this rule to understand the dataset, modeling expectations, evaluation metrics, and code organization standards."
+globs: 
+alwaysApply: false
+---
+# Project Rule: MIT-BIH Arrhythmia Multi-Class Classification
+
+This project uses the MIT-BIH Arrhythmia Dataset to implement a multi-class arrhythmia classification pipeline.
+
+- Dataset: MIT-BIH Arrhythmia Dataset
+- Main goal: Classify multiple arrhythmia types from ECG signals
+- Data preprocessing, augmentation, and train/val/test splitting are required
+- Models: Experiment with various deep learning models (CNN, RNN, Transformer, etc.)
+- Evaluation metrics: Use metrics suitable for multi-class classification (Accuracy, F1-score, Confusion Matrix, etc.)
+- Ensure reproducibility by fixing random seeds and recording experiment environments
+- Code structure should be modular: data loading, preprocessing, model definition, training, evaluation, and result visualization
+
+- Reference: [MIT-BIH Arrhythmia Dataset official documentation](mdc:https://physionet.org/content/mitdb/1.0.0/)
