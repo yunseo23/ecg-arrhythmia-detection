@@ -29,7 +29,7 @@ def augment_signal(signal, noise_level=0.01):
     noise = np.random.normal(0, noise_level, size=signal.shape)
     return signal + noise
 
-def augment_S_class(x1, x2, y, records, target_class='S', n_aug=2, noise_level=0.01):
+def augment_class(x1, x2, y, records, target_class='S', n_aug=2, noise_level=0.01):
     idx_s = np.where(y == target_class)[0]
     x1_s = x1[idx_s]
     y_s = y[idx_s]
@@ -56,11 +56,28 @@ def augment_S_class(x1, x2, y, records, target_class='S', n_aug=2, noise_level=0
     records_aug = np.concatenate([records, np.array(augmented_records)], axis=0)
     return x1_aug, x2_aug, y_aug, records_aug
 
-def preprocess_pipeline(apply_undersample=False, target_class='S', apply_augment=False, n_aug=2, noise_level=0.01):
+def augment_all_classes(x1, x2, y, records, n_aug_dict=None, noise_level_dict=None):
+    classes = np.unique(y)
+    x1_aug, x2_aug, y_aug, records_aug = x1, x2, y, records
+    for cls in classes:
+        n_aug = n_aug_dict.get(cls, 0) if n_aug_dict else 0
+        noise_level = noise_level_dict.get(cls, 0.01) if noise_level_dict else 0.01
+        if n_aug > 0:
+            x1_aug, x2_aug, y_aug, records_aug = augment_class(
+                x1_aug, x2_aug, y_aug, records_aug,
+                target_class=cls, n_aug=n_aug, noise_level=noise_level
+            )
+    return x1_aug, x2_aug, y_aug, records_aug
+
+def preprocess_pipeline(apply_undersample=False, target_class='S', apply_augment=False, n_aug=None, noise_level=None, apply_augment_all=False, n_aug_dict=None, noise_level_dict=None):
     FS = HYPERPARAMS['fs']
     EX_LABELS = HYPERPARAMS['ex_labels']
     HRV_WINDOW = HYPERPARAMS['hrv_window']
     MODEL_TYPE = HYPERPARAMS['model_type']
+    if n_aug is None:
+        n_aug = HYPERPARAMS.get('n_aug', 2)
+    if noise_level is None:
+        noise_level = HYPERPARAMS.get('noise_level', 0.01)
     all_segments = []
     all_labels = []
     all_records = []
@@ -121,8 +138,10 @@ def preprocess_pipeline(apply_undersample=False, target_class='S', apply_augment
     y = np.concatenate(all_labels, axis=0)
     records = np.concatenate(all_records, axis=0)
 
-    if apply_augment:
-        x1, x2, y, records = augment_S_class(x1, x2, y, records, target_class=target_class, n_aug=n_aug, noise_level=noise_level)
+    if apply_augment_all:
+        x1, x2, y, records = augment_all_classes(x1, x2, y, records, n_aug_dict=n_aug_dict, noise_level_dict=noise_level_dict)
+    elif apply_augment:
+        x1, x2, y, records = augment_class(x1, x2, y, records, target_class=target_class, n_aug=n_aug, noise_level=noise_level)
 
     if apply_undersample:
         x1, x2, y, records = undersample(x1, x2, y, records, target_class=target_class)
