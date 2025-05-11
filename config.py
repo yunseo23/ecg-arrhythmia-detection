@@ -23,23 +23,13 @@ HYPERPARAMS ={
     'noise_level_dict': {'N': 0.01, 'S': 0.01, 'V': 0.01, 'Q': 0.01},  # 각 클래스별 노이즈 세기
     
     # Advanced augmentation parameters
-    'augmentation_config': {
-        'S': {  # S class specific augmentation
-            'gaussian_noise': {'noise_level': 0.01},
-            'time_warp': {'sigma': 0.2},
-            'amplitude_scale': {'sigma': 0.1},
-            'random_crop': {'crop_ratio': 0.8},
-            'mixup': {'alpha': 0.2}
-        },
-        'V': {  # V class specific augmentation
-            'gaussian_noise': {'noise_level': 0.01},
-            'time_warp': {'sigma': 0.15}
-        },
-        'Q': {  # Q class specific augmentation
-            'gaussian_noise': {'noise_level': 0.01},
-            'amplitude_scale': {'sigma': 0.1}
-        }
-    }
+    'aug_type': 'all',  # 'time_warp', 'magnitude_warp', 'crop_pad', 'spec_aug', 'all'
+    'time_warp_sigma': 0.2,
+    'magnitude_warp_sigma': 0.2,
+    'magnitude_warp_knot': 4,
+    'crop_ratio': 0.1,
+    'freq_mask': 0.1,
+    'time_mask': 0.1,
 }
 
 def _dict_to_str(d, prefix):
@@ -50,15 +40,29 @@ def _dict_to_str_float(d, prefix):
     # 예: {'N': 0.01, 'S': 0.01, 'V': 0.01, 'Q': 0.01} -> 'nlN001S001V001Q001'
     return prefix + ''.join([f"{k}{str(v).replace('.', '').zfill(3)}" for k, v in d.items()])
 
+def _get_aug_type_str(aug_type, **kwargs):
+    """Convert augmentation type and parameters to string"""
+    if aug_type == 'all':
+        return 'all'
+    elif aug_type == 'time_warp':
+        return f'tw{str(kwargs.get("sigma", 0.2)).replace(".", "")}'
+    elif aug_type == 'magnitude_warp':
+        return f'mw{str(kwargs.get("sigma", 0.2)).replace(".", "")}k{kwargs.get("knot", 4)}'
+    elif aug_type == 'crop_pad':
+        return f'cp{str(kwargs.get("crop_ratio", 0.1)).replace(".", "")}'
+    elif aug_type == 'spec_aug':
+        return f'sa{str(kwargs.get("freq_mask", 0.1)).replace(".", "")}t{str(kwargs.get("time_mask", 0.1)).replace(".", "")}'
+    return aug_type
+
 EXPERIMENT_NAME = (
-    f"augmentALL_"
+    f"augmentADV_"  # Advanced augmentation
     f"{_dict_to_str(HYPERPARAMS['n_aug_dict'], 'n')}"
     f"_{_dict_to_str_float(HYPERPARAMS['noise_level_dict'], 'nl')}"
+    f"_{_get_aug_type_str(HYPERPARAMS['aug_type'], **{k: v for k, v in HYPERPARAMS.items() if k.startswith(('time_warp', 'magnitude_warp', 'crop_ratio', 'freq_mask', 'time_mask'))})}"
     f"_seed{HYPERPARAMS['seed']}_model{HYPERPARAMS['model_type']}"
 )
 
 
 
 
-# EXPERIMENT_NAME 예시: f"augmentS_n{HYPERPARAMS['n_aug']}_nl{str(HYPERPARAMS['noise_level']).replace('.', '')}_seed{HYPERPARAMS['seed']}_model{HYPERPARAMS['model_type']}"
 
