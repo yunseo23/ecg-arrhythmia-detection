@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import tensorflow as tf
-from tensorflow.keras import Model, Input
+from tensorflow.keras import Model, Input, layers
 from tensorflow.keras.layers import LSTM, Dense, Dropout, BatchNormalization, Concatenate, Conv1D, MaxPooling1D, GlobalAveragePooling1D
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import Adam
@@ -237,3 +237,53 @@ class CNNLSTMModel(BaseModel):
 
         model = Model(inputs=[x1, x2], outputs=output)
         return model
+
+class BinaryCNNModel:
+    def __init__(self, input_shape):
+        self.model = self._build_model(input_shape)
+        
+    def _build_model(self, input_shape):
+        inputs = layers.Input(shape=input_shape)
+        
+        # CNN layers
+        x = layers.Conv1D(32, 3, activation='relu', padding='same')(inputs)
+        x = layers.MaxPooling1D(2)(x)
+        x = layers.Conv1D(64, 3, activation='relu', padding='same')(x)
+        x = layers.MaxPooling1D(2)(x)
+        x = layers.Conv1D(128, 3, activation='relu', padding='same')(x)
+        x = layers.GlobalAveragePooling1D()(x)
+        
+        # Dense layers
+        x = layers.Dense(64, activation='relu')(x)
+        x = layers.Dropout(0.5)(x)
+        outputs = layers.Dense(1, activation='sigmoid')(x)
+        
+        model = Model(inputs=inputs, outputs=outputs)
+        model.compile(
+            optimizer='adam',
+            loss='binary_crossentropy',
+            metrics=['accuracy', tf.keras.metrics.AUC(), tf.keras.metrics.Precision(), tf.keras.metrics.Recall()]
+        )
+        return model
+    
+    def fit(self, x_train, y_train, x_val, y_val, class_weight=None):
+        return self.model.fit(
+            x_train, y_train,
+            validation_data=(x_val, y_val),
+            epochs=50,
+            batch_size=32,
+            class_weight=class_weight,
+            callbacks=[
+                tf.keras.callbacks.EarlyStopping(
+                    monitor='val_loss',
+                    patience=5,
+                    restore_best_weights=True
+                )
+            ]
+        )
+    
+    def evaluate(self, x_test, y_test):
+        return self.model.evaluate(x_test, y_test)
+    
+    def predict(self, x):
+        return (self.model.predict(x) > 0.5).astype(int)

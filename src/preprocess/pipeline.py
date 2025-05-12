@@ -256,3 +256,15 @@ def preprocess_pipeline(apply_undersample=False, target_class='S', apply_augment
         x1, x2, y, records = undersample(x1, x2, y, records, target_class=target_class)
 
     return x1, x2, y, records   
+
+def preprocess_pipeline_binary(apply_augment=False, n_aug=1, noise_level=0.01):
+    """
+    이진 분류(S vs Non-S)를 위한 전처리 파이프라인
+    """
+    # 기존 파이프라인 실행
+    x1, x2, y, records = preprocess_pipeline(apply_augment, n_aug, noise_level)
+    
+    # 라벨을 이진으로 변환 (S=1, others=0)
+    y_binary = np.array([1 if label == 'S' else 0 for label in y])
+    
+    return x1, x2, y_binary, records   

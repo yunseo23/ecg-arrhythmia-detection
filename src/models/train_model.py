@@ -1,4 +1,4 @@
-from src.models.model import CNNx1OnlyModel,CNNModel
+from src.models.model import CNNx1OnlyModel,CNNModel, BinaryCNNModel
 from src.preprocess.label_process import one_hot_encoder
 from src.evaluation.evaluate import calc_metrics, get_metric_df
 from src.utils.plot import plot_metric_hist
@@ -143,6 +143,36 @@ def train_and_evaluate(model_type, train, val, test,
     plot_metric_hist(precision, recall, specificity, class_names)
     return model, metric_df
 
+def train_and_evaluate_binary(model_type, train, val, test, y_train, y_val, y_test, class_weights, seed):
+    """Train and evaluate binary classification model"""
+    if model_type == 0:
+        # model initialization
+        x1_shape = (train['x1'].shape[1], 1)
+        model = BinaryCNNModel(x1_shape)
+        # model training
+        model.fit(train['x1'], y_train, val['x1'], y_val, class_weight=class_weights)
+        # model evaluation
+        test_loss, test_accuracy, test_auc, test_precision, test_recall = model.evaluate(test['x1'], y_test)
+        print(f"Test accuracy: {test_accuracy:.4f}")
+        # prediction
+        y_pred = model.predict(test['x1'])
+    else:
+        raise ValueError("Binary classification only supports model_type 0 (x1 only)")
+    
+    # 평가 지표 계산
+    precision, recall, f1, specificity = calc_metrics(y_test, y_pred)
+    print(f"Precision: {precision:.4f}")
+    print(f"Recall: {recall:.4f}")
+    print(f"F1-Score: {f1:.4f}")
+    print(f"Specificity: {specificity:.4f}")
+    
+    metric_df = pd.DataFrame({
+        'Metric': ['Precision', 'Recall', 'F1-Score', 'Specificity', 'AUC'],
+        'Value': [precision, recall, f1, specificity, test_auc]
+    })
+    metric_df['seed'] = seed
+    
+    return model, metric_df
 
 def train_test_pipeline(x1, x2, y, records):
     all_metrics = []
@@ -167,3 +197,37 @@ def train_test_pipeline(x1, x2, y, records):
     metric_df.to_csv(os.path.join(res_dir, "metrics.csv"), index=False)
     # Save hyperparams
     export_hyperparams(HYPERPARAMS, os.path.join(res_dir, "hyperparams.json"))
+
+def train_test_pipeline_binary(x1, x2, y, records):
+    """Binary classification pipeline for S vs Non-S"""
+    all_metrics = []
+    seed = HYPERPARAMS['seed']
+    model_type = HYPERPARAMS['model_type']
+    res_dir = os.path.join(RESULT_PATH, f"binary_S_vs_NonS_seed{seed}_model{model_type}")
+    os.makedirs(res_dir, exist_ok=True)
+    print(f"Experiment: Binary S vs Non-S Classification")
+
+    # Split data
+    train, val, test = split_data(x1, y, records, seed, x2)
+    
+    # Compute class weights
+    class_weights = compute_class_weights(train['y'])
+    # S 클래스 가중치 수동 조정 (예: 5배)
+    if 'S' in class_weights:
+        class_weights['S'] *= 5
+    
+    # Train and evaluate
+    model, metric_df = train_and_evaluate_binary(
+        model_type, train, val, test,
+        train['y'], val['y'], test['y'],
+        class_weights, seed
+    )
+    
+    all_metrics.append(metric_df)
+    
+    # Save metrics
+    metric_df.to_csv(os.path.join(res_dir, "metrics.csv"), index=False)
+    # Save hyperparams
+    export_hyperparams(HYPERPARAMS, os.path.join(res_dir, "hyperparams.json"))
+    
+    return model, metric_df

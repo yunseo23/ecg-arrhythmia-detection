@@ -25,6 +25,12 @@ def group_labels(label):
     else:
         return 'O' # other
     
+def group_labels_binary(label):
+    """Convert labels to binary (S=1, others=0)"""
+    if label in ['A','a','J','S']:  
+        return 'S'  # S (Supraventricular ectopic)
+    else:
+        return 'N'  # Non-S (including N, V, Q, O)
 
 def one_hot_encoder(y):
     le = LabelEncoder()
