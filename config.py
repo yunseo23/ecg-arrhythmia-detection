@@ -11,7 +11,7 @@ RESULT_PATH = './res/'  # 실험 결과 저장 경로
 DIRS_TO_CREATE = [GRIDSEARCH_PATH, TEST_PATH, RESULT_PATH]
 
 HYPERPARAMS ={
-    'seed': 20,
+    'seed': 39,
     'fs' : 360,
     'hrv_window' : 5,
     'ex_labels' : ['+', '[', ']', '!', 'Q', 'x', '"', '|', '~',],
@@ -19,7 +19,7 @@ HYPERPARAMS ={
     'resample_len' : 300, # ecg resample length
     'n_aug': 4,           # S 클래스 증강 배수 (deprecated, 개별 dict 사용 권장)
     'noise_level': 0.01,  # S 클래스 증강 노이즈 세기 (deprecated, 개별 dict 사용 권장)
-    'n_aug_dict': {'N': 1, 'S': 4, 'V': 2, 'Q': 1},  # 각 클래스별 증강 배수
+    'n_aug_dict': {'N': 1, 'S': 1, 'V': 1, 'Q': 1},  # 각 클래스별 증강 배수
     'noise_level_dict': {'N': 0.01, 'S': 0.01, 'V': 0.01, 'Q': 0.01},  # 각 클래스별 노이즈 세기
     
     # Advanced augmentation parameters
@@ -55,7 +55,7 @@ def _get_aug_type_str(aug_type, **kwargs):
     return aug_type
 
 EXPERIMENT_NAME = (
-    f"augmentADV_"  # Advanced augmentation
+    f"Sbinary_augmentADV_"  # Advanced augmentation
     f"{_dict_to_str(HYPERPARAMS['n_aug_dict'], 'n')}"
     f"_{_dict_to_str_float(HYPERPARAMS['noise_level_dict'], 'nl')}"
     f"_{_get_aug_type_str(HYPERPARAMS['aug_type'], **{k: v for k, v in HYPERPARAMS.items() if k.startswith(('time_warp', 'magnitude_warp', 'crop_ratio', 'freq_mask', 'time_mask'))})}"

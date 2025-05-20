@@ -145,30 +145,41 @@ def train_and_evaluate(model_type, train, val, test,
 
 def train_and_evaluate_binary(model_type, train, val, test, y_train, y_val, y_test, class_weights, seed):
     """Train and evaluate binary classification model"""
-    if model_type == 0:
-        # model initialization
-        x1_shape = (train['x1'].shape[1], 1)
-        model = BinaryCNNModel(x1_shape)
-        # model training
-        model.fit(train['x1'], y_train, val['x1'], y_val, class_weight=class_weights)
-        # model evaluation
-        test_loss, test_accuracy, test_auc, test_precision, test_recall = model.evaluate(test['x1'], y_test)
-        print(f"Test accuracy: {test_accuracy:.4f}")
-        # prediction
-        y_pred = model.predict(test['x1'])
-    else:
+    if model_type != 0:
         raise ValueError("Binary classification only supports model_type 0 (x1 only)")
     
-    # 평가 지표 계산
-    precision, recall, f1, specificity = calc_metrics(y_test, y_pred)
-    print(f"Precision: {precision:.4f}")
-    print(f"Recall: {recall:.4f}")
-    print(f"F1-Score: {f1:.4f}")
-    print(f"Specificity: {specificity:.4f}")
+    # model initialization
+    x1_shape = (train['x1'].shape[1], 1)
+    model = BinaryCNNModel(x1_shape)
+    # model training
+    model.fit(train['x1'], y_train, val['x1'], y_val, class_weight=class_weights)
+    # model evaluation
+    test_loss, test_accuracy, test_auc, test_precision, test_recall = model.evaluate(test['x1'], y_test)
+    print(f"Test accuracy: {test_accuracy:.4f}")
+    # prediction
+    y_pred = model.predict(test['x1'])
     
+    # 평가 지표 계산
+    precision, recall, f1, specificity = calc_metrics(y_test, y_pred, labels=[0, 1])
+    
+    # 각 클래스별 메트릭 출력
+    print("\nClass 0 (Non-S):")
+    print(f"Precision: {precision[0]:.4f}")
+    print(f"Recall: {recall[0]:.4f}")
+    print(f"F1 Score: {f1[0]:.4f}")
+    print(f"Specificity: {specificity[0]:.4f}")
+    
+    print("\nClass 1 (S):")
+    print(f"Precision: {precision[1]:.4f}")
+    print(f"Recall: {recall[1]:.4f}")
+    print(f"F1 Score: {f1[1]:.4f}")
+    print(f"Specificity: {specificity[1]:.4f}")
+    
+    # 결과를 DataFrame으로 저장
     metric_df = pd.DataFrame({
-        'Metric': ['Precision', 'Recall', 'F1-Score', 'Specificity', 'AUC'],
-        'Value': [precision, recall, f1, specificity, test_auc]
+        'Class': ['Non-S', 'S'] * 4,
+        'Metric': ['Precision'] * 2 + ['Recall'] * 2 + ['F1-Score'] * 2 + ['Specificity'] * 2,
+        'Value': np.concatenate([precision, recall, f1, specificity])
     })
     metric_df['seed'] = seed
     
