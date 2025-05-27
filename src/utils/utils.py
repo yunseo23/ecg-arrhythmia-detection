@@ -14,3 +14,9 @@ def export_hyperparams(cfg: dict,
         json.dump(cfg, f, indent=2, ensure_ascii=False)
 
 
+def print_s_distribution(train, val, test):
+    for name, data in zip(['Train', 'Validation', 'Test'], [train, val, test]):
+        total = len(data['y'])
+        s_count = (data['y'] == 1).sum()
+        non_s_count = (data['y'] == 0).sum()
+     

@@ -1,4 +1,4 @@
-from src.models.model import CNNx1OnlyModel,CNNModel, BinaryCNNModel
+from src.models.model import CNNx1OnlyModel,CNNModel, BinaryCNNModel, BinaryCNNAttentionModel
 from src.preprocess.label_process import one_hot_encoder
 from src.evaluation.evaluate import calc_metrics, get_metric_df
 from src.utils.plot import plot_metric_hist
@@ -150,9 +150,21 @@ def train_and_evaluate_binary(model_type, train, val, test, y_train, y_val, y_te
     
     # model initialization
     x1_shape = (train['x1'].shape[1], 1)
-    model = BinaryCNNModel(x1_shape)
+    
+    # Select model based on model_arch parameter
+    model_arch = HYPERPARAMS.get('model_arch', 'cnn')
+    if model_arch == 'cnn':
+        model = BinaryCNNModel(x1_shape)
+    elif model_arch == 'cnn_attn':
+        model = BinaryCNNAttentionModel(x1_shape)
+    else:
+        raise ValueError(f"Unknown model architecture: {model_arch}")
+        
+    print(f"Using model architecture: {model_arch}")
+    
     # model training
     model.fit(train['x1'], y_train, val['x1'], y_val, class_weight=class_weights)
+    
     # model evaluation
     test_loss, test_accuracy, test_auc, test_precision, test_recall = model.evaluate(test['x1'], y_test)
     print(f"Test accuracy: {test_accuracy:.4f}")
@@ -210,28 +222,33 @@ def train_test_pipeline(x1, x2, y, records):
     export_hyperparams(HYPERPARAMS, os.path.join(res_dir, "hyperparams.json"))
 
 def train_test_pipeline_binary(x1, x2, y, records):
-    """Binary classification pipeline for S vs Non-S"""
+    """Binary classification pipeline for S vs Non-S with configurable class weights"""
     all_metrics = []
     seed = HYPERPARAMS['seed']
     model_type = HYPERPARAMS['model_type']
-    res_dir = os.path.join(RESULT_PATH, f"binary_S_vs_NonS_seed{seed}_model{model_type}")
+    res_dir = os.path.join(RESULT_PATH, EXPERIMENT_NAME)
     os.makedirs(res_dir, exist_ok=True)
     print(f"Experiment: Binary S vs Non-S Classification")
 
     # Split data
     train, val, test = split_data(x1, y, records, seed, x2)
     
-    # Compute class weights
-    class_weights = compute_class_weights(train['y'])
-    # S 클래스 가중치 수동 조정 (예: 5배)
-    if 'S' in class_weights:
-        class_weights['S'] *= 5
+    # class weight 설정
+    class_weight = None
+    if HYPERPARAMS['use_class_weight']:
+        class_weight = compute_class_weights(train['y'])
+        # S 클래스 가중치 수동 조정
+        if 1 in class_weight:  # binary classification에서는 S가 1로 인코딩됨
+            class_weight[1] *= HYPERPARAMS['class_weight_multiply']
+        print("Using class weights:", class_weight)
+    else:
+        print("Not using class weights")
     
     # Train and evaluate
     model, metric_df = train_and_evaluate_binary(
         model_type, train, val, test,
         train['y'], val['y'], test['y'],
-        class_weights, seed
+        class_weight, seed
     )
     
     all_metrics.append(metric_df)
@@ -241,4 +258,5 @@ def train_test_pipeline_binary(x1, x2, y, records):
     # Save hyperparams
     export_hyperparams(HYPERPARAMS, os.path.join(res_dir, "hyperparams.json"))
     
-    return model, metric_df
+    # train, val, test도 함께 반환
+    return model, metric_df, train, val, test

@@ -1,0 +1,43 @@
+{
+  "seed": 39,
+  "fs": 360,
+  "hrv_window": 5,
+  "ex_labels": [
+    "+",
+    "[",
+    "]",
+    "!",
+    "Q",
+    "x",
+    "\"",
+    "|",
+    "~"
+  ],
+  "model_type": 0,
+  "resample_len": 300,
+  "n_aug": 4,
+  "noise_level": 0.01,
+  "n_aug_dict": {
+    "N": 1,
+    "S": 1,
+    "V": 1,
+    "Q": 1
+  },
+  "noise_level_dict": {
+    "N": 0.01,
+    "S": 0.01,
+    "V": 0.01,
+    "Q": 0.01
+  },
+  "aug_type": "all",
+  "time_warp_sigma": 0.2,
+  "magnitude_warp_sigma": 0.2,
+  "magnitude_warp_knot": 4,
+  "crop_ratio": 0.1,
+  "freq_mask": 0.1,
+  "time_mask": 0.1,
+  "focal_loss_gamma": 0,
+  "focal_loss_alpha": 0.25,
+  "use_class_weight": true,
+  "class_weight_multiply": 5
+}

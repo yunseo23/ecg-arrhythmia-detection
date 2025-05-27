@@ -16,11 +16,12 @@ HYPERPARAMS ={
     'hrv_window' : 5,
     'ex_labels' : ['+', '[', ']', '!', 'Q', 'x', '"', '|', '~',],
     'model_type' : 0, # 0: x1 only, 1: x1,x2
+    'model_arch': 'cnn_attn',  # 'cnn' or 'cnn_attn'
     'resample_len' : 300, # ecg resample length
-    'n_aug': 4,           # S 클래스 증강 배수 (deprecated, 개별 dict 사용 권장)
-    'noise_level': 0.01,  # S 클래스 증강 노이즈 세기 (deprecated, 개별 dict 사용 권장)
-    'n_aug_dict': {'N': 1, 'S': 1, 'V': 1, 'Q': 1},  # 각 클래스별 증강 배수
-    'noise_level_dict': {'N': 0.01, 'S': 0.01, 'V': 0.01, 'Q': 0.01},  # 각 클래스별 노이즈 세기
+    
+    # Augmentation settings
+    'n_aug_dict': {'N': 1, 'S': 4, 'V': 1, 'Q': 1},  # S 클래스 4배 증강으로 증가
+    'noise_level_dict': {'N': 0.01, 'S': 0.02, 'V': 0.01, 'Q': 0.01},  # 노이즈 레벨 유지
     
     # Advanced augmentation parameters
     'aug_type': 'all',  # 'time_warp', 'magnitude_warp', 'crop_pad', 'spec_aug', 'all'
@@ -30,6 +31,17 @@ HYPERPARAMS ={
     'crop_ratio': 0.1,
     'freq_mask': 0.1,
     'time_mask': 0.1,
+
+
+    # Loss & Weight parameters
+    # Loss function 설정
+    'focal_loss_gamma': 0,    # focal loss gamma (0: BCE 사용, >0: focal loss 사용)
+    'focal_loss_alpha': 0.25,   # focal loss alpha (focal loss의 positive class 가중치)
+
+    # Class weight 설정
+    'use_class_weight': True,  # class weight 사용 여부
+    'class_weight_multiply': 2.5,  # S 클래스 가중치 기본 배수
+    'class_weight_max': 6.0,  # S 클래스 가중치 최대값
 }
 
 def _dict_to_str(d, prefix):
@@ -54,12 +66,24 @@ def _get_aug_type_str(aug_type, **kwargs):
         return f'sa{str(kwargs.get("freq_mask", 0.1)).replace(".", "")}t{str(kwargs.get("time_mask", 0.1)).replace(".", "")}'
     return aug_type
 
+def _get_loss_str():
+    """Loss function과 class weight 설정을 문자열로 변환"""
+    parts = []
+    if HYPERPARAMS['focal_loss_gamma'] > 0:
+        parts.append(f"focal{str(HYPERPARAMS['focal_loss_gamma']).replace('.', '')}")
+    if HYPERPARAMS['use_class_weight']:
+        parts.append(f"cw{HYPERPARAMS['class_weight_multiply']}")
+    return '_'.join(parts) if parts else 'bce'  # 아무것도 없으면 'bce' 반환
+
 EXPERIMENT_NAME = (
-    f"Sbinary_augmentADV_"  # Advanced augmentation
-    f"{_dict_to_str(HYPERPARAMS['n_aug_dict'], 'n')}"
+    f"Sbinary_augmentADV"
+    f"_{_get_loss_str()}"  # Loss function 설정 표시
+    f"_{_dict_to_str(HYPERPARAMS['n_aug_dict'], 'n')}"
     f"_{_dict_to_str_float(HYPERPARAMS['noise_level_dict'], 'nl')}"
     f"_{_get_aug_type_str(HYPERPARAMS['aug_type'], **{k: v for k, v in HYPERPARAMS.items() if k.startswith(('time_warp', 'magnitude_warp', 'crop_ratio', 'freq_mask', 'time_mask'))})}"
-    f"_seed{HYPERPARAMS['seed']}_model{HYPERPARAMS['model_type']}"
+    f"_seed{HYPERPARAMS['seed']}"
+    f"_model{HYPERPARAMS['model_type']}"
+    f"_{HYPERPARAMS.get('model_arch', 'cnn')}"  # 모델 아키텍처 구분 (cnn or cnn_attn)
 )
 
 
