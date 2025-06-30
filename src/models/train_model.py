@@ -112,8 +112,9 @@ def train_and_evaluate(model_type, train, val, test,
         # model training
         model.fit([train['x1'],train['x2']], y_train_oh, [val['x1'],val['x2']], y_val_oh, train['y'], class_weight=class_weights)
         # model evaluation
-        test_loss, test_accuracy = model.evaluate([test['x1'],test['x2']], y_test_oh)
+        test_loss, test_accuracy, test_auc = model.evaluate([test['x1'],test['x2']], y_test_oh)
         print(f"Test accuracy: {test_accuracy:.4f}")
+        print(f"Test AUC: {test_auc:.4f}")
         # prediction
         y_pred = model.predict([test['x1'],test['x2']])
         
@@ -125,8 +126,9 @@ def train_and_evaluate(model_type, train, val, test,
         # model training
         model.fit(train['x1'], y_train_oh, val['x1'], y_val_oh, train['y'], class_weight=class_weights)
         # model evaluation
-        test_loss, test_accuracy = model.evaluate(test['x1'], y_test_oh)
+        test_loss, test_accuracy, test_auc = model.evaluate(test['x1'], y_test_oh)
         print(f"Test accuracy: {test_accuracy:.4f}")
+        print(f"Test AUC: {test_auc:.4f}")
         # prediction
         y_pred = model.predict(test['x1'])
     else:
@@ -168,6 +170,9 @@ def train_and_evaluate_binary(model_type, train, val, test, y_train, y_val, y_te
     # model evaluation
     test_loss, test_accuracy, test_auc, test_precision, test_recall = model.evaluate(test['x1'], y_test)
     print(f"Test accuracy: {test_accuracy:.4f}")
+    print(f"Test AUC: {test_auc:.4f}")
+    print(f"Test precision: {test_precision:.4f}")
+    print(f"Test recall: {test_recall:.4f}")
     # prediction
     y_pred = model.predict(test['x1'])
     

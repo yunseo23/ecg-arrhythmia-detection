@@ -85,7 +85,7 @@ class BaseModel(ABC):
 
 class LSTMModel(BaseModel):
     def __init__(self, x1_shape, x2_shape, n_classes, optimizer=None,
-                 lossfn='categorical_crossentropy', metrics=['accuracy']):
+                 lossfn='categorical_crossentropy', metrics=['accuracy', tf.keras.metrics.AUC(multi_label=False)]):
         super().__init__(optimizer=optimizer, lossfn=lossfn, metrics=metrics)
         self.x1_shape = x1_shape
         self.x2_shape = x2_shape
@@ -123,7 +123,7 @@ class LSTMModel(BaseModel):
 
 class CNNModel(BaseModel):
     def __init__(self, x1_shape, x2_shape, n_classes, optimizer=None,
-                lossfn='categorical_crossentropy', metrics=['accuracy']):
+                lossfn='categorical_crossentropy', metrics=['accuracy', tf.keras.metrics.AUC(multi_label=False)]):
         super().__init__(optimizer=optimizer, lossfn=lossfn, metrics=metrics)
         self.x1_shape = x1_shape
         self.x2_shape = x2_shape
@@ -168,7 +168,7 @@ class CNNModel(BaseModel):
     
 class CNNx1OnlyModel(BaseModel):
     def __init__(self, x1_shape, n_classes, optimizer=None,
-                lossfn='categorical_crossentropy', metrics=['accuracy']):
+                lossfn='categorical_crossentropy', metrics=['accuracy', tf.keras.metrics.AUC(multi_label=False)]):
         super().__init__(optimizer=optimizer, lossfn=lossfn, metrics=metrics)
         self.x1_shape = x1_shape
         self.n_classes = n_classes
@@ -204,7 +204,7 @@ class CNNx1OnlyModel(BaseModel):
     
 class CNNLSTMModel(BaseModel):
     def __init__(self, x1_shape, x2_shape, n_classes, optimizer=None,
-                lossfn='categorical_crossentropy', metrics=['accuracy']):
+                lossfn='categorical_crossentropy', metrics=['accuracy', tf.keras.metrics.AUC(multi_label=False)]):
         super().__init__(optimizer=optimizer, lossfn=lossfn, metrics=metrics)
         self.x1_shape = x1_shape
         self.x2_shape = x2_shape
