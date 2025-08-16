@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import tensorflow as tf
 from tensorflow.keras import Model, Input, layers, backend as K
-from tensorflow.keras.layers import LSTM, Dense, Dropout, BatchNormalization, Concatenate, Conv1D, MaxPooling1D, GlobalAveragePooling1D
+from tensorflow.keras.layers import LSTM, Dense, Dropout, BatchNormalization, Concatenate, Conv1D, MaxPooling1D, GlobalAveragePooling1D, Lambda
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
@@ -176,7 +176,7 @@ class CNNx1OnlyModel(BaseModel):
 
     def _build_model(self):
         # 시계열 입력
-        x1 = Input(shape=self.x1_shape)
+        x1 = Input(shape=self.x1_shape, name='ecg_input')
         conv1 = Conv1D(32, kernel_size=3, activation='relu', kernel_regularizer=l2(0.01), padding='same')(x1)
         conv1 = BatchNormalization()(conv1)
         # conv1 = MaxPooling1D(pool_size=2)(conv1)
@@ -197,7 +197,7 @@ class CNNx1OnlyModel(BaseModel):
         dense2 = BatchNormalization()(dense2)
         dense2 = Dropout(0.5)(dense2)
 
-        output = Dense(self.n_classes, activation='softmax')(dense2)
+        output = Dense(self.n_classes, activation='softmax', name='classification_output')(dense2)
 
         model = Model(inputs=x1, outputs=output)
         return model
@@ -357,7 +357,7 @@ class BinaryCNNAttentionModel:
         self.model = self._build_model(input_shape)
         
     def _build_model(self, input_shape):
-        inputs = layers.Input(shape=input_shape)
+        inputs = layers.Input(shape=input_shape, name='ecg_input')
         
         # First CNN block with residual connection
         x = layers.Conv1D(32, 3, padding='same')(inputs)
@@ -402,7 +402,7 @@ class BinaryCNNAttentionModel:
         x = layers.Dense(64, activation='relu')(x)
         x = layers.BatchNormalization()(x)
         x = layers.Dropout(0.2)(x)  # Reduced from 0.3
-        outputs = layers.Dense(1, activation='sigmoid')(x)
+        outputs = layers.Dense(1, activation='sigmoid', name='classification_output')(x)
         
         model = Model(inputs=inputs, outputs=outputs)
         

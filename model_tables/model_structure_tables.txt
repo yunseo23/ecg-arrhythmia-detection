@@ -1,0 +1,76 @@
+The autoreload extension is already loaded. To reload it, use:
+  %reload_ext autoreload
+Analyzing ECG Classification Models...
+
+================================================================================
+Table: CNNx1OnlyModel Architecture
+================================================================================
+                layer_name            type kernel_size_stride output_size  depth filters params    ops
+                     input           input                  -       300×1      0       -      0      0
+                 conv1d_30          conv1d              3×1/1      300×32      1      32    128  28.8K
+    batch_normalization_39      batch norm                  -      300×32      0       -    128  38.4K
+                 conv1d_31          conv1d              3×1/1      300×64      1      64   6.2K   1.8M
+    batch_normalization_40      batch norm                  -      300×64      0       -    256  76.8K
+                 conv1d_32          conv1d              3×1/1     300×128      1     128  24.7K   7.4M
+    batch_normalization_41      batch norm                  -     300×128      0       -    512 153.6K
+global_average_pooling1d_6 global avg pool            300×1/1       1×128      0       -      0  38.4K
+                  dense_24           dense                  -       1×128      1       -  16.5K  16.4K
+    batch_normalization_42      batch norm                  -       1×128      0       -    512    512
+                dropout_12   dropout (50%)                  -       1×128      0       -      0      0
+                  dense_25           dense                  -        1×64      1       -   8.3K   8.2K
+    batch_normalization_43      batch norm                  -        1×64      0       -    256    256
+                dropout_13   dropout (50%)                  -        1×64      0       -      0      0
+     classification_output           dense                  -         1×4      1       -    260    256
+
+Total Parameters: 57.7K
+Total Operations: 9.6M
+================================================================================
+
+================================================================================
+Table: BinaryCNNAttentionModel Architecture
+================================================================================
+                 layer_name              type kernel_size_stride output_size   depth filters params    ops
+                      input             input                  -       300×1       0       -      0      0
+                  conv1d_33            conv1d              3×1/1      300×32       1      32    128  28.8K
+     batch_normalization_44        batch norm                  -      300×32       0       -    128  38.4K
+              activation_15 activation (relu)                  -      300×32       0       -      0      0
+                  conv1d_34            conv1d              3×1/1      300×32       1      32   3.1K 921.6K
+     batch_normalization_45        batch norm                  -      300×32       0       -    128  38.4K
+                  conv1d_35            conv1d              1×1/1      300×32       1      32     64   9.6K
+              activation_16 activation (relu)                  -      300×32       0       -      0      0
+                      add_6    add (residual)                  -      300×32       0       -      0      0
+            max_pooling1d_6          max pool              2×1/2      150×32       0       -      0   9.6K
+                  conv1d_36            conv1d              3×1/1      150×64       1      64   6.2K 921.6K
+     batch_normalization_46        batch norm                  -      150×64       0       -    256  38.4K
+              activation_17 activation (relu)                  -      150×64       0       -      0      0
+                  conv1d_37            conv1d              3×1/1      150×64       1      64  12.4K   1.8M
+     batch_normalization_47        batch norm                  -      150×64       0       -    256  38.4K
+                  conv1d_38            conv1d              1×1/1      150×64       1      64   2.1K 307.2K
+              activation_18 activation (relu)                  -      150×64       0       -      0      0
+                      add_7    add (residual)                  -      150×64       0       -      0      0
+            max_pooling1d_7          max pool              2×1/2       75×64       0       -      0   9.6K
+                  conv1d_39            conv1d              3×1/1      75×128       1     128  24.7K   1.8M
+     batch_normalization_48        batch norm                  -      75×128       0       -    512  38.4K
+              activation_19 activation (relu)                  -      75×128       0       -      0      0
+multi_head_self_attention_3   multi-head attn                  -      75×128 8 heads       -  66.0K  17.3M
+     batch_normalization_49        batch norm                  -      75×128       0       -    512  38.4K
+ global_average_pooling1d_7   global avg pool             75×1/1       1×128       0       -      0   9.6K
+                   dense_30             dense                  -       1×128       1       -  16.5K  16.4K
+     batch_normalization_50        batch norm                  -       1×128       0       -    512    512
+                 dropout_14     dropout (40%)                  -       1×128       0       -      0      0
+                   dense_31             dense                  -        1×64       1       -   8.3K   8.2K
+     batch_normalization_51        batch norm                  -        1×64       0       -    256    256
+                 dropout_15     dropout (20%)                  -        1×64       0       -      0      0
+      classification_output             dense                  -         1×1       1       -     65     64
+
+Total Parameters: 142.1K
+Total Operations: 23.4M
+================================================================================
+
+================================================================================
+Model Comparison Summary
+================================================================================
+                  Model Input Shape    Output Parameters Operations                           Key Features
+         CNNx1OnlyModel    (300, 1) 4 classes      57.7K       9.6M            Simple CNN + Global Pooling
+BinaryCNNAttentionModel    (300, 1)    Binary     142.1K      23.4M Residual blocks + Multi-head Attention
+================================================================================
