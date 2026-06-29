@@ -203,20 +203,20 @@ def visualize_rpeak_adjustment(sig_cleaned, rpeaks, adj_rpeaks, record, fs=360, 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(20, 12))
     
     # 첫 번째 플롯: 원본 R-peaks
-    ax1.plot(time_axis, sig_cleaned[:end_sample], 'g-', linewidth=1, label='Cleaned ECG')
+    ax1.plot(time_axis, sig_cleaned[:end_sample], 'g-', linewidth=1, label='Initial preprocessed ECG')
     ax1.plot(rpeaks_in_window / fs, sig_cleaned[rpeaks_in_window], 'bo', 
              markersize=8, label=f'Detected R-peaks ({len(rpeaks_in_window)})')
-    ax1.set_title(f'Record {record} - Cleaned ECG with R-peaks (ecg_peaks)', fontsize=16, fontweight='bold')
+    ax1.set_title(f'Auto-corrected ECG Signal with Detected R-peaks Using NeuroKit2', fontsize=16, fontweight='bold')
     ax1.set_xlabel('Time (seconds)')
     ax1.set_ylabel('Amplitude')
     ax1.legend()
     ax1.grid(True, alpha=0.3)
     
     # 두 번째 플롯: 조정된 R-peaks
-    ax2.plot(time_axis, sig_cleaned[:end_sample], 'm-', linewidth=1, label='Cleaned ECG')
+    ax2.plot(time_axis, sig_cleaned[:end_sample], 'm-', linewidth=1, label='Initial preprocessed ECG')
     ax2.plot(adj_rpeaks_in_window / fs, sig_cleaned[adj_rpeaks_in_window], 'ro', 
-             markersize=8, label=f'Adjusted R-peaks ({len(adj_rpeaks_in_window)})')
-    ax2.set_title(f'Record {record} - Cleaned ECG with Adjusted R-peaks', fontsize=16, fontweight='bold')
+             markersize=8, label=f'Final Adjusted R-peaks ({len(adj_rpeaks_in_window)})')
+    ax2.set_title(f'Final Preprocessing Result: ECG Signal with Adjusted R-peaks after Position Optimization', fontsize=16, fontweight='bold')
     ax2.set_xlabel('Time (seconds)')
     ax2.set_ylabel('Amplitude')
     ax2.legend()
@@ -234,8 +234,56 @@ def visualize_rpeak_adjustment(sig_cleaned, rpeaks, adj_rpeaks, record, fs=360, 
     print(f"  Difference: {adjusted_count - original_count}")
     print(f"  Adjustment rate: {abs(adjusted_count - original_count) / original_count * 100:.2f}%")
     print("-" * 50)
+    
+def visualize_ecg_cleaning(sig_original, sig_cleaned, record, fs=360, time_window=20):
+    """
+    원본 ECG 신호와 정제된 ECG 신호를 비교 시각화하는 함수
+    
+    Parameters:
+    - sig_original: 원본 ECG 신호
+    - sig_cleaned: 정제된 ECG 신호 (ecg_clean 적용 후)
+    - record: 레코드 번호
+    - fs: 샘플링 주파수
+    - time_window: 표시할 시간 윈도우 (초)
+    """
+    # 시간 윈도우에 해당하는 샘플 수
+    window_samples = int(time_window * fs)
+    
+    # 신호의 시작 부분만 표시 (너무 긴 신호는 보기 어려움)
+    end_sample = min(window_samples, len(sig_original))
+    
+    # 시간 축 생성
+    time_axis = np.arange(end_sample) / fs
+    
+    # 서브플롯 생성
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(20, 12))
+    
+    # 첫 번째 플롯: 원본 ECG 신호
+    ax1.plot(time_axis, sig_original[:end_sample], 'b-', linewidth=1, label='Raw ECG Signal')
+    ax1.set_title(f'Raw ECG Signal from MIT-BIH Arrhythmia Database', fontsize=16, fontweight='bold')
+    ax1.set_xlabel('Time (seconds)')
+    ax1.set_ylabel('Amplitude')
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+    
+    # 두 번째 플롯: 정제된 ECG 신호
+    ax2.plot(time_axis, sig_cleaned[:end_sample], 'r-', linewidth=1, label='Initial preprocessed ECG Signal')
+    ax2.set_title(f'ECG Signal after Preprocessing and Noise Removal with NeuroKit2', fontsize=16, fontweight='bold')
+    ax2.set_xlabel('Time (seconds)')
+    ax2.set_ylabel('Amplitude')
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # 신호 통계 출력
+    print(f"Record {record} - Signal Statistics:")
+    print(f"  Original signal - Mean: {np.mean(sig_original):.4f}, Std: {np.std(sig_original):.4f}")
+    print(f"  Cleaned signal - Mean: {np.mean(sig_cleaned):.4f}, Std: {np.std(sig_cleaned):.4f}")
+    print("-" * 60)
 
-def preprocess_pipeline(apply_undersample=False, target_class='S', apply_augment=False, n_aug=None, noise_level=None, apply_augment_all=False, n_aug_dict=None, noise_level_dict=None, visualize_rpeaks=False):
+def preprocess_pipeline(apply_undersample=False, target_class='S', apply_augment=False, n_aug=None, noise_level=None, apply_augment_all=False, n_aug_dict=None, noise_level_dict=None, visualize_rpeaks=False, visualize_cleaning=False):
     FS = HYPERPARAMS['fs']
     EX_LABELS = HYPERPARAMS['ex_labels']
     HRV_WINDOW = HYPERPARAMS['hrv_window']
@@ -253,11 +301,18 @@ def preprocess_pipeline(apply_undersample=False, target_class='S', apply_augment
     for record in tqdm(mitdb):
         print(record)
         # load ECG signal & annotations
-        sig = load_ECG_signal(record)
+        sig = load_ECG_signal(record)  # 원본 신호
         dct_symbols = load_symbols(record, MITDB_PATH, extension='atr', EX_LABELS=EX_LABELS) 
 
         # sig cleaning
-        sig_cleaned = ecg_clean(sig, FS)
+        sig_cleaned = ecg_clean(sig, FS)  # 정제된 신호
+        
+        # ECG 정제 과정 시각화 (옵션)
+        if visualize_cleaning:
+            visualize_ecg_cleaning(sig, sig_cleaned, record, FS)
+            # 또는 겹쳐서 보고 싶다면:
+            # visualize_ecg_cleaning_overlay(sig, sig_cleaned, record, FS)
+        
         # rpeak detection
         rpeaks = get_rpeaks(sig_cleaned, ecg_peaks_method='neurokit')
         adj_rpeaks, candid_rpeaks = adjust_rpeaks(sig_cleaned, rpeaks)
@@ -323,7 +378,7 @@ def preprocess_pipeline(apply_undersample=False, target_class='S', apply_augment
 
     return x1, x2, y, records   
 
-def preprocess_pipeline_binary(apply_augment=False, n_aug=1, noise_level=0.01, visualize_rpeaks=False):
+def preprocess_pipeline_binary(apply_augment=False, n_aug=1, noise_level=0.01, visualize_rpeaks=False, visualize_cleaning=False):
     """
     이진 분류(S vs Non-S)를 위한 전처리 파이프라인
     """
@@ -334,10 +389,11 @@ def preprocess_pipeline_binary(apply_augment=False, n_aug=1, noise_level=0.01, v
         apply_augment=apply_augment,
         n_aug=n_aug,
         noise_level=noise_level,
-        visualize_rpeaks=visualize_rpeaks
+        visualize_rpeaks=visualize_rpeaks,
+        visualize_cleaning=visualize_cleaning  # 추가된 매개변수
     )
     
     # 라벨을 이진으로 변환 (S=1, others=0)
     y_binary = np.array([1 if label == 'S' else 0 for label in y])
     
-    return x1, x2, y_binary, records   
+    return x1, x2, y_binary, records
